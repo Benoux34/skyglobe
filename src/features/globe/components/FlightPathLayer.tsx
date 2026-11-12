@@ -32,12 +32,14 @@ interface FlightPathLayerProps {
 
 /**
  * Path of the selected aircraft: the track flown so far (solid), the remaining
- * great circle to its destination (dashed) and both airports.
+ * great circle to its destination (dashed) and both airports. When no track was
+ * recorded, the flown part is estimated as the direct line from the origin.
  */
 export function FlightPathLayer({ simulation, palette }: FlightPathLayerProps) {
   const selectedId = useFlightsStore((state) => state.selectedId);
   const details = useFlightsStore(selectSelectedFlightDetails);
   const tailRef = useRef<LineHandle>(null);
+  const estimatedRef = useRef<LineHandle>(null);
   const remainingRef = useRef<LineHandle>(null);
   const sinceRefresh = useRef(Number.POSITIVE_INFINITY);
 
@@ -47,9 +49,18 @@ export function FlightPathLayer({ simulation, palette }: FlightPathLayerProps) {
     () => (details?.route ? airportPosition(details.route.destination) : null),
     [details],
   );
+  // Without a recorded track, the path so far is assumed to be the direct line from the origin.
+  const estimatedOrigin = useMemo(
+    () =>
+      details !== null && details.track === null && details.route !== null
+        ? airportPosition(details.route.origin)
+        : null,
+    [details],
+  );
   const buffers = useMemo(
     () => ({
       tail: new Float32Array(TAIL_POINTS * 3),
+      estimated: new Float32Array(ARC_POINTS * 3),
       remaining: new Float32Array(ARC_POINTS * 3),
     }),
     [],
@@ -73,6 +84,10 @@ export function FlightPathLayer({ simulation, palette }: FlightPathLayerProps) {
       writeArc(buffers.tail, lastFlown, aircraft);
       tailRef.current.geometry.setPositions(buffers.tail);
     }
+    if (estimatedRef.current !== null && estimatedOrigin !== null) {
+      writeArc(buffers.estimated, estimatedOrigin, aircraft);
+      estimatedRef.current.geometry.setPositions(buffers.estimated);
+    }
     if (remainingRef.current !== null && destination !== null) {
       writeArc(buffers.remaining, aircraft, destination);
       remainingRef.current.geometry.setPositions(buffers.remaining);
@@ -94,6 +109,17 @@ export function FlightPathLayer({ simulation, palette }: FlightPathLayerProps) {
           points={TAIL_PLACEHOLDER}
           color={palette.ink}
           lineWidth={1.6}
+          toneMapped={false}
+        />
+      )}
+      {estimatedOrigin !== null && (
+        <Line
+          ref={estimatedRef}
+          points={ARC_PLACEHOLDER}
+          color={palette.ink}
+          lineWidth={1.6}
+          transparent
+          opacity={0.8}
           toneMapped={false}
         />
       )}

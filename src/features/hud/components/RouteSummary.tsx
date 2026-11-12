@@ -31,6 +31,11 @@ export function RouteSummary() {
         <AirportBlock airport={route.destination} align="right" />
       </div>
       {route.airline !== null && <p className="text-muted mt-2 text-xs">{route.airline}</p>}
+      {track === null && (
+        <p className="text-subtle mt-1 text-xs">
+          Path so far estimated as a direct line from {airportCode(route.origin)}.
+        </p>
+      )}
     </div>
   );
 }
