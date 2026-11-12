@@ -1,0 +1,63 @@
+# Publishes the live OpenSky snapshot as a file the deployed app can read.
+#
+# OpenSky ignores connections from the cloud the app is hosted on, but answers
+# GitHub's runners. This job downloads the snapshot and attaches it to the
+# "data" release of this repository; the app reads it from there
+# (FLIGHTS_SNAPSHOT_URL).
+#
+# Needs two repository secrets: OPENSKY_CLIENT_ID and OPENSKY_CLIENT_SECRET.
+name: Publish flights
+
+on:
+  schedule:
+    # The shortest interval GitHub allows; runs are often a few minutes late.
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publish-flights
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      OPENSKY_CLIENT_ID: ${{ secrets.OPENSKY_CLIENT_ID }}
+      OPENSKY_CLIENT_SECRET: ${{ secrets.OPENSKY_CLIENT_SECRET }}
+      RELEASE_TAG: data
+      # Two snapshots per run: about one every 2.5 minutes, or 2,300 of the
+      # 4,000 daily OpenSky credits.
+      SECOND_SNAPSHOT_DELAY_SECONDS: 150
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check the OpenSky secrets
+        run: |
+          if [[ -z "$OPENSKY_CLIENT_ID" || -z "$OPENSKY_CLIENT_SECRET" ]]; then
+            echo "::error::Add the OPENSKY_CLIENT_ID and OPENSKY_CLIENT_SECRET repository secrets."
+            exit 1
+          fi
+
+      - name: Make sure the data release exists
+        run: |
+          gh release view "$RELEASE_TAG" > /dev/null 2>&1 ||
+            gh release create "$RELEASE_TAG" --latest=false \
+              --title "Live flight data" \
+              --notes "Snapshot of the aircraft tracked by OpenSky, replaced every few minutes by the Publish flights workflow."
+
+      - name: Publish two snapshots
+        run: |
+          set -euo pipefail
+          publish() {
+            .github/scripts/fetch-flights.sh flights.json
+            gh release upload "$RELEASE_TAG" flights.json --clobber
+          }
+          publish
+          sleep "$SECOND_SNAPSHOT_DELAY_SECONDS"
+          publish

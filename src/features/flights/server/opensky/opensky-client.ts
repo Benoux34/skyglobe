@@ -2,11 +2,10 @@ import "server-only";
 import type { OpenSkyAccess } from "@/shared/config/server-env";
 import type { Aircraft } from "../../domain/aircraft";
 import { FlightsError } from "../flights-error";
-import { requestOpenSky } from "./opensky-request";
+import { requestStates } from "./opensky-request";
 import { openSkyStatesSchema, toAircraft } from "./opensky-schema";
 
-/** Above the relay's own 25 s limit, so its explanation arrives before this one fires. */
-const REQUEST_TIMEOUT_MS = 28_000;
+const REQUEST_TIMEOUT_MS = 25_000;
 const ERROR_DETAIL_LENGTH = 200;
 
 export interface OpenSkySnapshot {
@@ -17,7 +16,7 @@ export interface OpenSkySnapshot {
 export async function fetchOpenSkySnapshot(access: OpenSkyAccess): Promise<OpenSkySnapshot> {
   let response: Response;
   try {
-    response = await requestOpenSky(access, { kind: "states" }, REQUEST_TIMEOUT_MS);
+    response = await requestStates(access, REQUEST_TIMEOUT_MS);
   } catch (cause) {
     // Signing in to OpenSky already explains its own failures.
     if (cause instanceof FlightsError) throw cause;
@@ -35,7 +34,7 @@ export async function fetchOpenSkySnapshot(access: OpenSkyAccess): Promise<OpenS
     throw new FlightsError("rate_limited", "The OpenSky Network request quota is exhausted.");
   }
   if (!response.ok) {
-    // The relay explains its failures in the body; OpenSky's own error pages are cut short.
+    // The start of the error body usually says why; whole error pages would flood the logs.
     const detail = (await response.text().catch(() => "")).trim().slice(0, ERROR_DETAIL_LENGTH);
     throw new FlightsError(
       "upstream_unavailable",

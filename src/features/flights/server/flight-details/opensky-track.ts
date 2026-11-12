@@ -2,7 +2,7 @@ import "server-only";
 import { z } from "zod";
 import type { OpenSkyAccess } from "@/shared/config/server-env";
 import type { TrackPoint } from "../../domain/flight-details";
-import { requestOpenSky } from "../opensky/opensky-request";
+import { requestTrack } from "../opensky/opensky-request";
 
 const REQUEST_TIMEOUT_MS = 10_000;
 
@@ -19,12 +19,17 @@ const trackSchema = z.object({
   ),
 });
 
-/** Waypoints of the flight currently flown by `icao24`, or `null` when OpenSky has none. */
+/**
+ * Waypoints of the flight currently flown by `icao24`, or `null` when OpenSky
+ * has none or cannot be asked (a published snapshot holds positions only).
+ */
 export async function fetchOpenSkyTrack(
   icao24: string,
   access: OpenSkyAccess,
 ): Promise<TrackPoint[] | null> {
-  const response = await requestOpenSky(access, { kind: "track", icao24 }, REQUEST_TIMEOUT_MS);
+  if (access.kind === "snapshot") return null;
+
+  const response = await requestTrack(access, icao24, REQUEST_TIMEOUT_MS);
   if (!response.ok) return null;
 
   const parsed = trackSchema.safeParse(await response.json());
