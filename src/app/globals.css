@@ -1,0 +1,90 @@
+@import "tailwindcss";
+
+/* Design tokens. Light is beige, dark is black; components only use the semantic names. */
+:root,
+[data-theme="dark"] {
+  color-scheme: dark;
+  --background: #000000;
+  --surface: #0a0a0a;
+  --inset: #171717;
+  --line: #262626;
+  --fg: #ededed;
+  --muted: #a1a1a1;
+  --subtle: #6b6b6b;
+}
+
+[data-theme="light"] {
+  color-scheme: light;
+  --background: #efe8dc;
+  --surface: #f8f3ea;
+  --inset: #ebe3d5;
+  --line: #d9cfbd;
+  --fg: #1f1b16;
+  --muted: #6b6357;
+  --subtle: #978d7e;
+}
+
+@theme inline {
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-inset: var(--inset);
+  --color-line: var(--line);
+  --color-fg: var(--fg);
+  --color-muted: var(--muted);
+  --color-subtle: var(--subtle);
+}
+
+html,
+body {
+  height: 100%;
+  overflow: hidden;
+  background: var(--background);
+  color: var(--fg);
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+}
+
+/* Two-thumb range slider: the inputs are stacked, only their thumbs take the pointer. */
+.range-thumb {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  margin: 0;
+  appearance: none;
+  background: transparent;
+  pointer-events: none;
+}
+
+.range-thumb::-webkit-slider-thumb {
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--fg);
+  border-radius: 9999px;
+  background: var(--surface);
+  cursor: grab;
+  pointer-events: auto;
+}
+
+.range-thumb::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--fg);
+  border-radius: 9999px;
+  background: var(--surface);
+  cursor: grab;
+  pointer-events: auto;
+}
+
+.range-thumb:focus-visible {
+  outline: none;
+}
+
+.range-thumb:focus-visible::-webkit-slider-thumb {
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--fg) 25%, transparent);
+}
+
+.range-thumb:focus-visible::-moz-range-thumb {
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--fg) 25%, transparent);
+}

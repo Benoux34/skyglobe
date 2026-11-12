@@ -1,0 +1,63 @@
+"use client";
+
+import { useFrame } from "@react-three/fiber";
+import { useRef } from "react";
+import { DoubleSide, type Group, type Vector3 } from "three";
+import { displayName, type Icao24 } from "@/features/flights/domain/aircraft";
+import { useFlightsStore } from "@/features/flights/store/flights-store";
+import { selectHoveredAircraft, selectSelectedAircraft } from "@/features/flights/store/selectors";
+import type { AircraftSimulation } from "../lib/aircraft-simulation";
+import type { GlobePalette } from "../lib/palette";
+import { aircraftIconScale } from "../lib/view";
+import { GlobeLabel } from "./GlobeLabel";
+
+const RING_SCALE = 2.6;
+
+interface AircraftMarkersProps {
+  readonly simulation: AircraftSimulation;
+  readonly palette: GlobePalette;
+}
+
+/** Selection ring plus callsign labels that follow the selected and hovered aircraft. */
+export function AircraftMarkers({ simulation, palette }: AircraftMarkersProps) {
+  const selected = useFlightsStore(selectSelectedAircraft);
+  const hovered = useFlightsStore(selectHoveredAircraft);
+  const ringRef = useRef<Group>(null);
+
+  const locate =
+    (icao24: Icao24) =>
+    (target: Vector3): boolean => {
+      const entity = simulation.find(icao24);
+      if (entity === null || !entity.visible) return false;
+      target.set(entity.upX, entity.upY, entity.upZ).multiplyScalar(entity.radius);
+      return true;
+    };
+
+  useFrame(({ camera, clock }) => {
+    const ring = ringRef.current;
+    if (ring === null) return;
+    ring.visible = selected !== null && locate(selected.icao24)(ring.position);
+    if (!ring.visible) return;
+
+    const pulse = 1 + 0.1 * Math.sin(clock.elapsedTime * 3);
+    ring.scale.setScalar(aircraftIconScale(camera.position.length()) * RING_SCALE * pulse);
+    ring.lookAt(0, 0, 0);
+  });
+
+  return (
+    <>
+      <group ref={ringRef} visible={false}>
+        <mesh>
+          <ringGeometry args={[0.86, 1, 48]} />
+          <meshBasicMaterial color={palette.ink} side={DoubleSide} toneMapped={false} />
+        </mesh>
+      </group>
+      {selected !== null && (
+        <GlobeLabel text={displayName(selected)} emphasized locate={locate(selected.icao24)} />
+      )}
+      {hovered !== null && hovered.icao24 !== selected?.icao24 && (
+        <GlobeLabel text={displayName(hovered)} locate={locate(hovered.icao24)} />
+      )}
+    </>
+  );
+}
