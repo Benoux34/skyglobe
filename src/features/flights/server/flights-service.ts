@@ -24,6 +24,16 @@ let retryAt = 0;
 let lastError: FlightsError | null = null;
 let inFlight: Promise<FlightsResult> | null = null;
 
+/** Flattens an error chain for the logs: `fetch` hides the network reason in a nested cause. */
+function describeCause(cause: unknown): string {
+  const parts: string[] = [];
+  for (let current = cause; current instanceof Error && parts.length < 4; current = current.cause) {
+    const code = "code" in current && typeof current.code === "string" ? ` [${current.code}]` : "";
+    parts.push(`${current.name}: ${current.message}${code}`);
+  }
+  return parts.length === 0 ? "no further detail" : parts.join(" <- ");
+}
+
 async function refresh(): Promise<FlightsResult> {
   try {
     const { time, aircraft } = await fetchOpenSkySnapshot(serverEnv.openSkyCredentials);
@@ -40,7 +50,9 @@ async function refresh(): Promise<FlightsResult> {
         : new FlightsError("upstream_unavailable", "Unexpected error while loading flights.", {
             cause,
           });
-    console.error(`[flights] refresh failed: ${error.code} ${error.message}`);
+    console.error(
+      `[flights] refresh failed: ${error.code} ${error.message} (${describeCause(error.cause)})`,
+    );
     retryAt = nowSeconds() + FAILURE_BACKOFF_SECONDS;
     lastError = error;
 

@@ -23,17 +23,26 @@ let cachedToken: CachedToken | null = null;
 export async function getOpenSkyAccessToken(credentials: OpenSkyCredentials): Promise<string> {
   if (cachedToken !== null && cachedToken.expiresAt > Date.now()) return cachedToken.value;
 
-  const response = await fetch(TOKEN_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({
-      grant_type: "client_credentials",
-      client_id: credentials.clientId,
-      client_secret: credentials.clientSecret,
-    }),
-    cache: "no-store",
-    signal: AbortSignal.timeout(10_000),
-  });
+  let response: Response;
+  try {
+    response = await fetch(TOKEN_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        grant_type: "client_credentials",
+        client_id: credentials.clientId,
+        client_secret: credentials.clientSecret,
+      }),
+      cache: "no-store",
+      signal: AbortSignal.timeout(10_000),
+    });
+  } catch (cause) {
+    throw new FlightsError(
+      "upstream_unavailable",
+      "The OpenSky sign-in server could not be reached.",
+      { cause },
+    );
+  }
 
   if (!response.ok) {
     throw new FlightsError(
@@ -42,10 +51,17 @@ export async function getOpenSkyAccessToken(credentials: OpenSkyCredentials): Pr
     );
   }
 
-  const token = tokenResponseSchema.parse(await response.json());
+  const token = tokenResponseSchema.safeParse(await response.json().catch(() => null));
+  if (!token.success) {
+    throw new FlightsError(
+      "invalid_upstream_data",
+      "The OpenSky sign-in server returned an unexpected answer.",
+      { cause: token.error },
+    );
+  }
   cachedToken = {
-    value: token.access_token,
-    expiresAt: Date.now() + token.expires_in * 1000 - EXPIRY_MARGIN_MS,
+    value: token.data.access_token,
+    expiresAt: Date.now() + token.data.expires_in * 1000 - EXPIRY_MARGIN_MS,
   };
   return cachedToken.value;
 }

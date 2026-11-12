@@ -8,6 +8,7 @@ import { AircraftLayer } from "./AircraftLayer";
 import { AircraftMarkers } from "./AircraftMarkers";
 import { AircraftPicker } from "./AircraftPicker";
 import { CameraRig } from "./CameraRig";
+import { CountryLabels } from "./CountryLabels";
 import { Earth } from "./Earth";
 import { EmergencyMarkers } from "./EmergencyMarkers";
 import { FlightPathLayer } from "./FlightPathLayer";
@@ -20,6 +21,9 @@ export function GlobeScene() {
     <>
       <Suspense fallback={null}>
         <Earth palette={palette} />
+      </Suspense>
+      <Suspense fallback={null}>
+        <CountryLabels />
       </Suspense>
       {/* Order matters: the layer advances the simulation that the others read. */}
       <AircraftLayer simulation={simulation} palette={palette} />

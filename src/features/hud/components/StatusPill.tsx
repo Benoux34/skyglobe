@@ -5,7 +5,12 @@ import { formatAge } from "@/shared/lib/format";
 import { useNowSeconds } from "@/shared/lib/use-now";
 import { Panel } from "@/shared/ui/Panel";
 
-export function StatusPill() {
+interface StatusPillProps {
+  /** Shorter wording for narrow screens. */
+  readonly compact?: boolean;
+}
+
+export function StatusPill({ compact = false }: StatusPillProps) {
   const snapshotTime = useFlightsStore((state) => state.snapshot?.time ?? null);
   const error = useFlightsStore((state) => state.error);
   const now = useNowSeconds();
@@ -15,15 +20,19 @@ export function StatusPill() {
   if (snapshotTime !== null) {
     const age = now === null ? null : formatAge(Math.max(0, now - snapshotTime));
     dot = error === null ? "bg-emerald-500" : "bg-amber-500";
-    text = `${error === null ? "Live" : "Reconnecting"}${age === null ? "" : ` · positions updated ${age}`}`;
+    const state = error === null ? "Live" : "Reconnecting";
+    const updated = compact ? age : `positions updated ${age}`;
+    text = age === null ? state : `${state} · ${updated}`;
   } else if (error !== null) {
     dot = "bg-rose-500";
-    text = "Flight data unavailable";
+    text = compact ? "Unavailable" : "Flight data unavailable";
+  } else if (compact) {
+    text = "Connecting…";
   }
 
   return (
     <Panel
-      className="flex h-10 items-center gap-2.5 rounded-lg px-3.5 text-sm text-fg"
+      className="flex h-10 min-w-0 items-center gap-2.5 rounded-lg px-3.5 text-sm whitespace-nowrap text-fg"
       role="status"
       title={
         error ??

@@ -49,7 +49,8 @@ export async function fetchOpenSkySnapshot(
     );
   }
 
-  const parsed = openSkyStatesSchema.safeParse(await response.json());
+  // A block page served with HTTP 200 is not JSON; it then fails validation below.
+  const parsed = openSkyStatesSchema.safeParse(await response.json().catch(() => null));
   if (!parsed.success) {
     throw new FlightsError(
       "invalid_upstream_data",

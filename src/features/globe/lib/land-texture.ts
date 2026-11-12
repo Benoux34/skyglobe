@@ -1,14 +1,11 @@
 import { geoEquirectangular, geoPath } from "d3-geo";
 import { CanvasTexture, LinearMipmapLinearFilter, NoColorSpace } from "three";
 import { feature, mesh } from "topojson-client";
-import type { GeometryCollection, Topology } from "topojson-specification";
+import { loadWorld } from "./world-map";
 
-const WORLD_URL = "/geo/countries-50m.json";
 const WIDTH = 4096;
 const HEIGHT = 2048;
 const BORDER_WIDTH_PX = 1.5;
-
-type WorldTopology = Topology<{ land: GeometryCollection; countries: GeometryCollection }>;
 
 /**
  * Rasterises Natural Earth outlines into a data texture:
@@ -16,9 +13,7 @@ type WorldTopology = Topology<{ land: GeometryCollection; countries: GeometryCol
  * The shader colours it, so switching theme never redraws the map.
  */
 async function createLandTexture(): Promise<CanvasTexture> {
-  const response = await fetch(WORLD_URL);
-  if (!response.ok) throw new Error(`Unable to load the world map (HTTP ${response.status}).`);
-  const world = (await response.json()) as WorldTopology;
+  const world = await loadWorld();
 
   const canvas = document.createElement("canvas");
   canvas.width = WIDTH;
