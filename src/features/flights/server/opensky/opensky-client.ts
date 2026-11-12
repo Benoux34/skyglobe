@@ -1,34 +1,25 @@
 import "server-only";
-import type { OpenSkyCredentials } from "@/shared/config/server-env";
+import type { OpenSkyAccess } from "@/shared/config/server-env";
 import type { Aircraft } from "../../domain/aircraft";
 import { FlightsError } from "../flights-error";
-import { getOpenSkyAccessToken } from "./opensky-auth";
+import { requestOpenSky } from "./opensky-request";
 import { openSkyStatesSchema, toAircraft } from "./opensky-schema";
 
-const STATES_URL = "https://opensky-network.org/api/states/all";
-const REQUEST_TIMEOUT_MS = 20_000;
+/** Above the relay's own 25 s limit, so its explanation arrives before this one fires. */
+const REQUEST_TIMEOUT_MS = 28_000;
 
 export interface OpenSkySnapshot {
   readonly time: number;
   readonly aircraft: Aircraft[];
 }
 
-export async function fetchOpenSkySnapshot(
-  credentials: OpenSkyCredentials | null,
-): Promise<OpenSkySnapshot> {
-  const headers = new Headers({ Accept: "application/json" });
-  if (credentials !== null) {
-    headers.set("Authorization", `Bearer ${await getOpenSkyAccessToken(credentials)}`);
-  }
-
+export async function fetchOpenSkySnapshot(access: OpenSkyAccess): Promise<OpenSkySnapshot> {
   let response: Response;
   try {
-    response = await fetch(STATES_URL, {
-      headers,
-      cache: "no-store",
-      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-    });
+    response = await requestOpenSky(access, { kind: "states" }, REQUEST_TIMEOUT_MS);
   } catch (cause) {
+    // Signing in to OpenSky already explains its own failures.
+    if (cause instanceof FlightsError) throw cause;
     const timedOut = cause instanceof Error && cause.name === "TimeoutError";
     throw new FlightsError(
       "upstream_unavailable",

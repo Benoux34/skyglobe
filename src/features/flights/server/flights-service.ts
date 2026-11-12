@@ -36,7 +36,7 @@ function describeCause(cause: unknown): string {
 
 async function refresh(): Promise<FlightsResult> {
   try {
-    const { time, aircraft } = await fetchOpenSkySnapshot(serverEnv.openSkyCredentials);
+    const { time, aircraft } = await fetchOpenSkySnapshot(serverEnv.openSkyAccess);
     cached = {
       time,
       aircraft,

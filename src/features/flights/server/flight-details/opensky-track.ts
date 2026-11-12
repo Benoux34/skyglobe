@@ -1,10 +1,10 @@
 import "server-only";
 import { z } from "zod";
-import type { OpenSkyCredentials } from "@/shared/config/server-env";
+import type { OpenSkyAccess } from "@/shared/config/server-env";
 import type { TrackPoint } from "../../domain/flight-details";
-import { getOpenSkyAccessToken } from "../opensky/opensky-auth";
+import { requestOpenSky } from "../opensky/opensky-request";
 
-const TRACK_URL = "https://opensky-network.org/api/tracks/all";
+const REQUEST_TIMEOUT_MS = 10_000;
 
 const trackSchema = z.object({
   path: z.array(
@@ -22,19 +22,9 @@ const trackSchema = z.object({
 /** Waypoints of the flight currently flown by `icao24`, or `null` when OpenSky has none. */
 export async function fetchOpenSkyTrack(
   icao24: string,
-  credentials: OpenSkyCredentials | null,
+  access: OpenSkyAccess,
 ): Promise<TrackPoint[] | null> {
-  const headers = new Headers({ Accept: "application/json" });
-  if (credentials !== null) {
-    headers.set("Authorization", `Bearer ${await getOpenSkyAccessToken(credentials)}`);
-  }
-
-  const url = `${TRACK_URL}?icao24=${encodeURIComponent(icao24)}&time=0`;
-  const response = await fetch(url, {
-    headers,
-    cache: "no-store",
-    signal: AbortSignal.timeout(10_000),
-  });
+  const response = await requestOpenSky(access, { kind: "track", icao24 }, REQUEST_TIMEOUT_MS);
   if (!response.ok) return null;
 
   const parsed = trackSchema.safeParse(await response.json());

@@ -23,7 +23,7 @@ export async function getFlightDetails(
   callsign: string | null,
 ): Promise<FlightDetails> {
   const [track, route, airframe] = await Promise.all([
-    orNull("OpenSky track", fetchOpenSkyTrack(icao24, serverEnv.openSkyCredentials)),
+    orNull("OpenSky track", fetchOpenSkyTrack(icao24, serverEnv.openSkyAccess)),
     callsign === null ? null : orNull("adsbdb route", fetchAdsbdbRoute(callsign)),
     orNull("adsbdb airframe", fetchAdsbdbAirframe(icao24)),
   ]);
