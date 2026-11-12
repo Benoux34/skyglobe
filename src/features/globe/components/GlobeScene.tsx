@@ -9,6 +9,7 @@ import { AircraftMarkers } from "./AircraftMarkers";
 import { AircraftPicker } from "./AircraftPicker";
 import { CameraRig } from "./CameraRig";
 import { Earth } from "./Earth";
+import { EmergencyMarkers } from "./EmergencyMarkers";
 import { FlightPathLayer } from "./FlightPathLayer";
 
 export function GlobeScene() {
@@ -24,6 +25,7 @@ export function GlobeScene() {
       <AircraftLayer simulation={simulation} palette={palette} />
       <FlightPathLayer simulation={simulation} palette={palette} />
       <AircraftMarkers simulation={simulation} palette={palette} />
+      <EmergencyMarkers simulation={simulation} palette={palette} />
       <AircraftPicker simulation={simulation} />
       <CameraRig simulation={simulation} />
     </>

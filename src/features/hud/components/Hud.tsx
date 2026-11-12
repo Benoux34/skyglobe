@@ -6,6 +6,7 @@ import { ThemeToggle } from "@/shared/theme/ThemeToggle";
 import { AircraftDetails } from "./AircraftDetails";
 import { AltitudeLegend } from "./AltitudeLegend";
 import { Brand } from "./Brand";
+import { EmergencyAlerts } from "./EmergencyAlerts";
 import { FiltersPanel } from "./FiltersPanel";
 import { LoadingState } from "./LoadingState";
 import { SearchBox } from "./SearchBox";
@@ -35,6 +36,7 @@ export function Hud() {
           <ThemeToggle />
         </div>
         <div className="w-full min-h-0 space-y-3 overflow-y-auto rounded-xl">
+          <EmergencyAlerts />
           {selected !== null && <AircraftDetails aircraft={selected} />}
           <StatsPanel />
         </div>

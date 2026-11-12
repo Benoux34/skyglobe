@@ -4,6 +4,7 @@ import { useFrame } from "@react-three/fiber";
 import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import { Color, DoubleSide, MeshBasicMaterial, type InstancedMesh } from "three";
 import { aircraftColor } from "@/features/flights/domain/altitude";
+import { EMERGENCY_COLOR, emergencyOf, findEmergencies } from "@/features/flights/domain/emergency";
 import { matchesFilters } from "@/features/flights/domain/filters";
 import { useFlightsStore } from "@/features/flights/store/flights-store";
 import { selectAllAircraft } from "@/features/flights/store/selectors";
@@ -25,6 +26,12 @@ export function AircraftLayer({ simulation, palette }: AircraftLayerProps) {
   const aircraft = useFlightsStore(selectAllAircraft);
   const filters = useFlightsStore((state) => state.filters);
   const meshRef = useRef<InstancedMesh>(null);
+
+  // Aircraft in distress are drawn larger, like the selected one.
+  const emergencyIds = useMemo(
+    () => new Set(findEmergencies(aircraft).map((a) => a.icao24)),
+    [aircraft],
+  );
 
   const geometry = useMemo(() => createAircraftGeometry(), []);
   const material = useMemo(
@@ -50,7 +57,8 @@ export function AircraftLayer({ simulation, palette }: AircraftLayerProps) {
     if (mesh === null) return;
     const color = new Color();
     simulation.entities.forEach((entity, index) => {
-      const [red, green, blue] = aircraftColor(entity.aircraft);
+      const [red, green, blue] =
+        emergencyOf(entity.aircraft) === null ? aircraftColor(entity.aircraft) : EMERGENCY_COLOR;
       mesh.setColorAt(index, color.setRGB(red / 255, green / 255, blue / 255, "srgb"));
     });
     if (mesh.instanceColor !== null) mesh.instanceColor.needsUpdate = true;
@@ -75,7 +83,7 @@ export function AircraftLayer({ simulation, palette }: AircraftLayerProps) {
       const id = entity.aircraft.icao24;
       const scale = !entity.visible
         ? 0
-        : id === selectedId || id === hoveredId
+        : id === selectedId || id === hoveredId || emergencyIds.has(id)
           ? baseScale * HIGHLIGHT_SCALE
           : baseScale;
 

@@ -11,6 +11,7 @@
   --fg: #ededed;
   --muted: #a1a1a1;
   --subtle: #6b6b6b;
+  --alert: #ef4444;
 }
 
 [data-theme="light"] {
@@ -22,6 +23,7 @@
   --fg: #1f1b16;
   --muted: #6b6357;
   --subtle: #978d7e;
+  --alert: #c62828;
 }
 
 @theme inline {
@@ -34,6 +36,7 @@
   --color-fg: var(--fg);
   --color-muted: var(--muted);
   --color-subtle: var(--subtle);
+  --color-alert: var(--alert);
 }
 
 html,

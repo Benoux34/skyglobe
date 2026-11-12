@@ -1,8 +1,16 @@
 "use client";
 
-import { ArrowDownRight, ArrowRight, ArrowUpRight, Crosshair, X } from "lucide-react";
+import {
+  ArrowDownRight,
+  ArrowRight,
+  ArrowUpRight,
+  LocateFixed,
+  TriangleAlert,
+  X,
+} from "lucide-react";
 import { displayName, type Aircraft } from "@/features/flights/domain/aircraft";
 import { aircraftColor, rgbToCss } from "@/features/flights/domain/altitude";
+import { EMERGENCY_COLOR, emergencyOf } from "@/features/flights/domain/emergency";
 import { useFlightsStore } from "@/features/flights/store/flights-store";
 import { formatAge, formatCoordinates, formatHeading, formatInteger } from "@/shared/lib/format";
 import { metresToFeet, msToFeetPerMinute, msToKmh, msToKnots } from "@/shared/lib/units";
@@ -20,15 +28,18 @@ interface AircraftDetailsProps {
 
 export function AircraftDetails({ aircraft }: AircraftDetailsProps) {
   const select = useFlightsStore((state) => state.select);
-  const selectAndFocus = useFlightsStore((state) => state.selectAndFocus);
+  const toggleFollow = useFlightsStore((state) => state.toggleFollow);
+  const following = useFlightsStore((state) => state.followingId === aircraft.icao24);
   const now = useNowSeconds();
+  const emergency = emergencyOf(aircraft);
+  const dotColor = emergency === null ? aircraftColor(aircraft) : EMERGENCY_COLOR;
 
   return (
     <Panel className="overflow-hidden" aria-label={`Details for ${displayName(aircraft)}`}>
       <header className="flex items-start gap-3 p-4">
         <span
           className="mt-1.5 size-2.5 shrink-0 rounded-full"
-          style={{ backgroundColor: rgbToCss(aircraftColor(aircraft)) }}
+          style={{ backgroundColor: rgbToCss(dotColor) }}
         />
         <div className="min-w-0 flex-1">
           <h2 className="truncate font-mono text-2xl leading-tight font-semibold tracking-tight text-fg">
@@ -38,12 +49,15 @@ export function AircraftDetails({ aircraft }: AircraftDetailsProps) {
         </div>
         <button
           type="button"
-          onClick={() => selectAndFocus(aircraft.icao24)}
-          aria-label="Centre the globe on this aircraft"
-          title="Centre on aircraft"
-          className="grid size-8 place-items-center rounded-lg text-muted hover:bg-inset hover:text-fg"
+          onClick={toggleFollow}
+          aria-pressed={following}
+          aria-label={following ? "Stop following this aircraft" : "Follow this aircraft"}
+          title={following ? "Stop following" : "Follow aircraft"}
+          className={`grid size-8 place-items-center rounded-lg transition-colors ${
+            following ? "bg-fg text-background" : "text-muted hover:bg-inset hover:text-fg"
+          }`}
         >
-          <Crosshair className="size-4" aria-hidden />
+          <LocateFixed className="size-4" aria-hidden />
         </button>
         <button
           type="button"
@@ -54,6 +68,18 @@ export function AircraftDetails({ aircraft }: AircraftDetailsProps) {
           <X className="size-4" aria-hidden />
         </button>
       </header>
+
+      {emergency !== null && (
+        <div role="alert" className="flex items-start gap-2.5 bg-alert px-4 py-2.5 text-white">
+          <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden />
+          <div className="min-w-0">
+            <p className="text-sm font-semibold">
+              {emergency.label} · squawk {emergency.code}
+            </p>
+            <p className="text-xs opacity-90">{emergency.description}</p>
+          </div>
+        </div>
+      )}
 
       <AirframeSummary />
       <RouteSummary />

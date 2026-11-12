@@ -1,4 +1,5 @@
 import type { Aircraft, Icao24 } from "../domain/aircraft";
+import { findEmergencies } from "../domain/emergency";
 import type { FlightDetails } from "../domain/flight-details";
 import { matchesFilters, type FlightFilters } from "../domain/filters";
 import { computeStats, countByCountry, type CountryCount, type FlightStats } from "../domain/stats";
@@ -28,6 +29,7 @@ const indexById = memoizeLatest(
   (aircraft: readonly Aircraft[]): ReadonlyMap<Icao24, Aircraft> =>
     new Map(aircraft.map((a) => [a.icao24, a])),
 );
+const emergenciesOf = memoizeLatest(findEmergencies);
 const statsOf = memoizeLatest(computeStats);
 const countriesOf = memoizeLatest(countByCountry);
 
@@ -36,6 +38,10 @@ export const selectAllAircraft = (state: FlightsStore): readonly Aircraft[] =>
 
 export const selectVisibleAircraft = (state: FlightsStore): readonly Aircraft[] =>
   filterAircraft(selectAllAircraft(state), state.filters);
+
+/** Aircraft squawking a distress code, among those the filters let through. */
+export const selectEmergencyAircraft = (state: FlightsStore): readonly Aircraft[] =>
+  emergenciesOf(selectVisibleAircraft(state));
 
 export const selectVisibleStats = (state: FlightsStore): FlightStats =>
   statsOf(selectVisibleAircraft(state));

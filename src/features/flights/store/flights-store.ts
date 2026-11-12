@@ -27,6 +27,8 @@ interface FlightsState {
   readonly selectedId: Icao24 | null;
   readonly hoveredId: Icao24 | null;
   readonly focusRequest: FocusRequest | null;
+  /** Aircraft the camera keeps centred; always the selected one, or `null`. */
+  readonly followingId: Icao24 | null;
   readonly details: FlightDetailsState;
 }
 
@@ -39,11 +41,19 @@ interface FlightsActions {
   /** Selects the aircraft and asks the camera to fly to it. */
   selectAndFocus(icao24: Icao24): void;
   hover(icao24: Icao24 | null): void;
+  /** Starts or stops keeping the camera on the selected aircraft. */
+  toggleFollow(): void;
+  stopFollowing(): void;
   detailsRequested(icao24: Icao24): void;
   detailsLoaded(icao24: Icao24, details: FlightDetails): void;
   detailsFailed(icao24: Icao24): void;
   detailsCleared(): void;
 }
+
+const nextFocusRequest = (previous: FocusRequest | null, icao24: Icao24): FocusRequest => ({
+  icao24,
+  requestId: (previous?.requestId ?? 0) + 1,
+});
 
 export type FlightsStore = FlightsState & FlightsActions;
 
@@ -54,6 +64,7 @@ export const useFlightsStore = create<FlightsStore>()((set) => ({
   selectedId: null,
   hoveredId: null,
   focusRequest: null,
+  followingId: null,
   details: IDLE_DETAILS,
 
   snapshotReceived: (snapshot) =>
@@ -65,6 +76,7 @@ export const useFlightsStore = create<FlightsStore>()((set) => ({
         error: null,
         selectedId: stillPresent(state.selectedId),
         hoveredId: stillPresent(state.hoveredId),
+        followingId: stillPresent(state.followingId),
       };
     }),
 
@@ -73,13 +85,30 @@ export const useFlightsStore = create<FlightsStore>()((set) => ({
   updateFilters: (patch) => set((state) => ({ filters: { ...state.filters, ...patch } })),
   resetFilters: () => set({ filters: DEFAULT_FILTERS }),
 
-  select: (icao24) => set({ selectedId: icao24 }),
+  select: (icao24) =>
+    set((state) => ({
+      selectedId: icao24,
+      followingId: state.followingId === icao24 ? icao24 : null,
+    })),
   selectAndFocus: (icao24) =>
     set((state) => ({
       selectedId: icao24,
-      focusRequest: { icao24, requestId: (state.focusRequest?.requestId ?? 0) + 1 },
+      followingId: state.followingId === icao24 ? icao24 : null,
+      focusRequest: nextFocusRequest(state.focusRequest, icao24),
     })),
   hover: (icao24) => set((state) => (state.hoveredId === icao24 ? state : { hoveredId: icao24 })),
+
+  toggleFollow: () =>
+    set((state) => {
+      if (state.followingId !== null) return { followingId: null };
+      if (state.selectedId === null) return state;
+      return {
+        followingId: state.selectedId,
+        // Fly in first; the camera then stays on the aircraft.
+        focusRequest: nextFocusRequest(state.focusRequest, state.selectedId),
+      };
+    }),
+  stopFollowing: () => set((state) => (state.followingId === null ? state : { followingId: null })),
 
   // A refresh for the aircraft already on screen keeps the current details visible meanwhile.
   detailsRequested: (icao24) =>

@@ -2,10 +2,11 @@
 
 import { useFrame } from "@react-three/fiber";
 import { useRef } from "react";
-import { DoubleSide, type Group, type Vector3 } from "three";
+import { DoubleSide, type Group } from "three";
 import { displayName, type Icao24 } from "@/features/flights/domain/aircraft";
 import { useFlightsStore } from "@/features/flights/store/flights-store";
 import { selectHoveredAircraft, selectSelectedAircraft } from "@/features/flights/store/selectors";
+import { aircraftLocator } from "../lib/aircraft-locator";
 import type { AircraftSimulation } from "../lib/aircraft-simulation";
 import type { GlobePalette } from "../lib/palette";
 import { aircraftIconScale } from "../lib/view";
@@ -24,14 +25,7 @@ export function AircraftMarkers({ simulation, palette }: AircraftMarkersProps) {
   const hovered = useFlightsStore(selectHoveredAircraft);
   const ringRef = useRef<Group>(null);
 
-  const locate =
-    (icao24: Icao24) =>
-    (target: Vector3): boolean => {
-      const entity = simulation.find(icao24);
-      if (entity === null || !entity.visible) return false;
-      target.set(entity.upX, entity.upY, entity.upZ).multiplyScalar(entity.radius);
-      return true;
-    };
+  const locate = (icao24: Icao24) => aircraftLocator(simulation, icao24);
 
   useFrame(({ camera, clock }) => {
     const ring = ringRef.current;
@@ -53,7 +47,11 @@ export function AircraftMarkers({ simulation, palette }: AircraftMarkersProps) {
         </mesh>
       </group>
       {selected !== null && (
-        <GlobeLabel text={displayName(selected)} emphasized locate={locate(selected.icao24)} />
+        <GlobeLabel
+          text={displayName(selected)}
+          tone="emphasized"
+          locate={locate(selected.icao24)}
+        />
       )}
       {hovered !== null && hovered.icao24 !== selected?.icao24 && (
         <GlobeLabel text={displayName(hovered)} locate={locate(hovered.icao24)} />
