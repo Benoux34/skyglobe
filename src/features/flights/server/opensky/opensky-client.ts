@@ -7,6 +7,7 @@ import { openSkyStatesSchema, toAircraft } from "./opensky-schema";
 
 /** Above the relay's own 25 s limit, so its explanation arrives before this one fires. */
 const REQUEST_TIMEOUT_MS = 28_000;
+const ERROR_DETAIL_LENGTH = 200;
 
 export interface OpenSkySnapshot {
   readonly time: number;
@@ -34,9 +35,11 @@ export async function fetchOpenSkySnapshot(access: OpenSkyAccess): Promise<OpenS
     throw new FlightsError("rate_limited", "The OpenSky Network request quota is exhausted.");
   }
   if (!response.ok) {
+    // The relay explains its failures in the body; OpenSky's own error pages are cut short.
+    const detail = (await response.text().catch(() => "")).trim().slice(0, ERROR_DETAIL_LENGTH);
     throw new FlightsError(
       "upstream_unavailable",
-      `OpenSky Network responded with HTTP ${response.status}.`,
+      `OpenSky Network responded with HTTP ${response.status}${detail === "" ? "" : `: ${detail}`}.`,
     );
   }
 

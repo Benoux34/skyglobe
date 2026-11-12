@@ -4,10 +4,23 @@ import { z } from "zod";
 const emptyToUndefined = (value: unknown): unknown => (value === "" ? undefined : value);
 const optionalString = z.preprocess(emptyToUndefined, z.string().optional());
 
+/** Forgives the usual copy-paste slips: stray quotes or spaces, and a missing `https://`. */
+function normalizeUrl(value: unknown): unknown {
+  if (typeof value !== "string") return value;
+  const trimmed = value.trim().replace(/^["']|["']$/g, "");
+  if (trimmed === "") return undefined;
+  return /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+}
+
 const serverEnvSchema = z.object({
   OPENSKY_CLIENT_ID: optionalString,
   OPENSKY_CLIENT_SECRET: optionalString,
-  OPENSKY_RELAY_URL: z.preprocess(emptyToUndefined, z.url().optional()),
+  OPENSKY_RELAY_URL: z.preprocess(
+    normalizeUrl,
+    z
+      .url({ error: "OPENSKY_RELAY_URL must look like https://name.account.workers.dev" })
+      .optional(),
+  ),
   OPENSKY_RELAY_TOKEN: optionalString,
   FLIGHTS_REFRESH_SECONDS: z.preprocess(
     emptyToUndefined,
@@ -44,7 +57,8 @@ function loadServerEnv(): ServerEnv {
   if (env.OPENSKY_RELAY_URL !== undefined && env.OPENSKY_RELAY_TOKEN !== undefined) {
     openSkyAccess = {
       kind: "relay",
-      url: env.OPENSKY_RELAY_URL.replace(/\/+$/, ""),
+      // The base address is expected; a pasted route (`…/states`) is cut back to it.
+      url: env.OPENSKY_RELAY_URL.replace(/\/+$/, "").replace(/\/(states|tracks)$/, ""),
       token: env.OPENSKY_RELAY_TOKEN,
     };
   } else {
