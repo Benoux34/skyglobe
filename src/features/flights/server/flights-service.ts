@@ -20,6 +20,8 @@ const nowSeconds = (): number => Date.now() / 1000;
  */
 let cached: FlightsSnapshot | null = null;
 let retryAt = 0;
+/** Why the latest refresh failed; repeated while backing off so the cause stays visible. */
+let lastError: FlightsError | null = null;
 let inFlight: Promise<FlightsResult> | null = null;
 
 async function refresh(): Promise<FlightsResult> {
@@ -40,6 +42,7 @@ async function refresh(): Promise<FlightsResult> {
           });
     console.error(`[flights] refresh failed: ${error.code} ${error.message}`);
     retryAt = nowSeconds() + FAILURE_BACKOFF_SECONDS;
+    lastError = error;
 
     // Stale positions beat no positions: the client keeps extrapolating them.
     if (cached !== null) {
@@ -56,7 +59,9 @@ export async function getFlightsSnapshot(): Promise<FlightsResult> {
   if (cached === null && retryAt > now) {
     return {
       ok: false,
-      error: new FlightsError("upstream_unavailable", "Flight data is temporarily unavailable."),
+      error:
+        lastError ??
+        new FlightsError("upstream_unavailable", "Flight data is temporarily unavailable."),
       retryAt,
     };
   }

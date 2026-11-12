@@ -29,9 +29,14 @@ export async function fetchOpenSkySnapshot(
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
   } catch (cause) {
-    throw new FlightsError("upstream_unavailable", "OpenSky Network could not be reached.", {
-      cause,
-    });
+    const timedOut = cause instanceof Error && cause.name === "TimeoutError";
+    throw new FlightsError(
+      "upstream_unavailable",
+      timedOut
+        ? "OpenSky Network did not answer in time. It may be blocking this server's network."
+        : "OpenSky Network could not be reached.",
+      { cause },
+    );
   }
 
   if (response.status === 429) {
