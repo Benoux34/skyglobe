@@ -8,6 +8,7 @@ import { useFlightsStore } from "@/features/flights/store/flights-store";
 import { clamp } from "@/shared/lib/units";
 import type { AircraftSimulation } from "../lib/aircraft-simulation";
 import { CAMERA_MAX_DISTANCE, CAMERA_MIN_DISTANCE } from "../lib/view";
+import { useCameraStore } from "../store/camera-store";
 
 /** Fly-to animations zoom in to at most this distance. */
 const FOCUS_DISTANCE = 1.9;
@@ -18,16 +19,28 @@ interface CameraRigProps {
   readonly simulation: AircraftSimulation;
 }
 
-/** Orbit controls, the fly-to animation triggered by `focusRequest`, and follow mode. */
+/** Orbit controls, the fly-to animations (to an aircraft or to a place), and follow mode. */
 export function CameraRig({ simulation }: CameraRigProps) {
   const focusRequest = useFlightsStore((state) => state.focusRequest);
   const controlsRef = useRef<ComponentRef<typeof OrbitControls>>(null);
+  const flyToRequest = useCameraStore((state) => state.flyToRequest);
   const focusingRef = useRef<string | null>(null);
+  /** Fixed place the camera is flying to, as a unit vector. */
+  const placeRef = useRef<Vector3 | null>(null);
   const canvas = useThree((state) => state.gl.domElement);
 
+  // The latest request wins, whether it names an aircraft or a place.
   useEffect(() => {
     focusingRef.current = focusRequest?.icao24 ?? null;
+    if (focusRequest !== null) placeRef.current = null;
   }, [focusRequest]);
+
+  useEffect(() => {
+    if (flyToRequest === null) return;
+    placeRef.current = new Vector3(...flyToRequest.direction);
+    focusingRef.current = null;
+    useFlightsStore.getState().stopFollowing();
+  }, [flyToRequest]);
 
   useEffect(() => {
     const controls = controlsRef.current;
@@ -35,6 +48,7 @@ export function CameraRig({ simulation }: CameraRigProps) {
     // Any manual interaction (drag or wheel) ends the fly-to animation.
     const cancelFocus = (): void => {
       focusingRef.current = null;
+      placeRef.current = null;
     };
     // Dragging the globe also ends follow mode; zooming with the wheel does not.
     const stopFollowing = (): void => useFlightsStore.getState().stopFollowing();
@@ -58,24 +72,33 @@ export function CameraRig({ simulation }: CameraRigProps) {
     }
 
     // A fly-to takes precedence; once it lands, follow mode keeps tracking.
+    const place = placeRef.current;
     const flyingTo = focusingRef.current;
-    const targetId = flyingTo ?? useFlightsStore.getState().followingId;
-    const entity = targetId === null ? null : simulation.find(targetId);
-    if (entity === null) return;
+    let target: Vector3;
+    if (place !== null) {
+      target = place;
+    } else {
+      const targetId = flyingTo ?? useFlightsStore.getState().followingId;
+      const entity = targetId === null ? null : simulation.find(targetId);
+      if (entity === null) return;
+      target = scratch.set(entity.upX, entity.upY, entity.upZ);
+    }
 
-    const target = scratch.set(entity.upX, entity.upY, entity.upZ);
     const direction = camera.position.clone().normalize();
     const blend = 1 - Math.exp(-FOCUS_SPEED * delta);
     // Only a fly-to zooms in; while following, the zoom level is the user's.
-    const nextDistance =
-      flyingTo === null
-        ? distance
-        : distance + (Math.min(distance, FOCUS_DISTANCE) - distance) * blend;
+    const zooming = place !== null || flyingTo !== null;
+    const nextDistance = zooming
+      ? distance + (Math.min(distance, FOCUS_DISTANCE) - distance) * blend
+      : distance;
     const remainingAngle = direction.angleTo(target);
 
     direction.lerp(target, blend).normalize();
     camera.position.copy(direction).multiplyScalar(nextDistance);
-    if (remainingAngle < FOCUS_DONE_ANGLE) focusingRef.current = null;
+    if (remainingAngle < FOCUS_DONE_ANGLE) {
+      focusingRef.current = null;
+      placeRef.current = null;
+    }
   });
 
   return (

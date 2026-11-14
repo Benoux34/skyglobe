@@ -4,6 +4,7 @@ import { useFrame, useThree } from "@react-three/fiber";
 import { useEffect, useRef } from "react";
 import { Vector3 } from "three";
 import type { Locator } from "../lib/aircraft-locator";
+import { isHiddenByEarth } from "../lib/view";
 
 type LabelTone = "default" | "emphasized" | "alert";
 
@@ -54,8 +55,7 @@ export function GlobeLabel({ text, tone = "default", locate }: GlobeLabelProps) 
     if (tag === null) return;
 
     const anchor = anchorRef.current;
-    // Horizon test: the point is visible when it lies on the camera's side of the limb.
-    const shown = locate(anchor) && anchor.dot(camera.position) > anchor.length();
+    const shown = locate(anchor) && !isHiddenByEarth(anchor.x, anchor.y, anchor.z, camera.position);
     tag.style.visibility = shown ? "visible" : "hidden";
     if (!shown) return;
 

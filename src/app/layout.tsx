@@ -7,8 +7,8 @@ const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "SkyGlobe · Live air traffic",
-  description: "Every aircraft currently in the sky, live on an interactive 3D globe.",
+  title: "SkyGlobe · Live traffic around the Earth",
+  description: "Aircraft, satellites and rocket launches, live on an interactive 3D globe.",
 };
 
 export const viewport: Viewport = {

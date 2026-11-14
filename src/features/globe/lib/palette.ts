@@ -1,3 +1,5 @@
+import type { SatelliteGroup } from "@/features/satellites/domain/satellite";
+import type { ShipCategory } from "@/features/ships/domain/ship";
 import type { Theme } from "@/shared/theme/theme";
 
 export interface GlobePalette {
@@ -12,6 +14,10 @@ export interface GlobePalette {
   readonly aircraftTint: string;
   /** Rings around aircraft in distress. */
   readonly alert: string;
+  readonly satellites: Readonly<Record<SatelliteGroup, string>>;
+  readonly ships: Readonly<Record<ShipCategory, string>>;
+  /** Launch pad markers. */
+  readonly launch: string;
 }
 
 /** WebGL cannot read CSS variables, so the globe mirrors the tokens of globals.css here. */
@@ -24,6 +30,21 @@ export const GLOBE_PALETTES: Readonly<Record<Theme, GlobePalette>> = {
     ink: "#1f1b16",
     aircraftTint: "#8f8f8f",
     alert: "#c62828",
+    // Starlink is two thirds of the catalogue: it stays quiet so the rest reads.
+    satellites: {
+      station: "#be123c",
+      starlink: "#a39a8b",
+      navigation: "#b45309",
+      other: "#0f766e",
+    },
+    ships: {
+      cargo: "#1d4ed8",
+      tanker: "#7e22ce",
+      passenger: "#be185d",
+      fishing: "#4d7c0f",
+      other: "#78716c",
+    },
+    launch: "#c2410c",
   },
   dark: {
     ocean: "#0a0a0a",
@@ -33,5 +54,19 @@ export const GLOBE_PALETTES: Readonly<Record<Theme, GlobePalette>> = {
     ink: "#ededed",
     aircraftTint: "#ffffff",
     alert: "#ef4444",
+    satellites: {
+      station: "#fb7185",
+      starlink: "#6f6f6f",
+      navigation: "#fbbf24",
+      other: "#2dd4bf",
+    },
+    ships: {
+      cargo: "#60a5fa",
+      tanker: "#c084fc",
+      passenger: "#f472b6",
+      fishing: "#a3e635",
+      other: "#8a8a8a",
+    },
+    launch: "#fb923c",
   },
 };

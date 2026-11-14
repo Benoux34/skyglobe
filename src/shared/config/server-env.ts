@@ -21,6 +21,10 @@ const serverEnvSchema = z.object({
       .url({ error: "FLIGHTS_SNAPSHOT_URL must be the address of the published snapshot" })
       .optional(),
   ),
+  SHIPS_SNAPSHOT_URL: z.preprocess(
+    normalizeUrl,
+    z.url({ error: "SHIPS_SNAPSHOT_URL must be the address of the published snapshot" }).optional(),
+  ),
   FLIGHTS_REFRESH_SECONDS: z.preprocess(
     emptyToUndefined,
     z.coerce.number().int().min(10).optional(),
@@ -52,6 +56,8 @@ export type OpenSkyAccess = DirectOpenSkyAccess | PublishedSnapshotAccess;
 export interface ServerEnv {
   readonly openSkyAccess: OpenSkyAccess;
   readonly flightsRefreshSeconds: number;
+  /** Where the "Publish ships" GitHub workflow uploads its snapshot; `null` turns ships off. */
+  readonly shipsSnapshotUrl: string | null;
 }
 
 /** A global snapshot costs 4 OpenSky credits: 400/day anonymous, 4000/day authenticated. */
@@ -82,6 +88,7 @@ function loadServerEnv(): ServerEnv {
   return {
     openSkyAccess,
     flightsRefreshSeconds: env.FLIGHTS_REFRESH_SECONDS ?? defaultRefreshSeconds(openSkyAccess),
+    shipsSnapshotUrl: env.SHIPS_SNAPSHOT_URL ?? null,
   };
 }
 

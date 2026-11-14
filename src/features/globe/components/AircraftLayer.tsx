@@ -8,6 +8,7 @@ import { EMERGENCY_COLOR, emergencyOf, findEmergencies } from "@/features/flight
 import { matchesFilters } from "@/features/flights/domain/filters";
 import { useFlightsStore } from "@/features/flights/store/flights-store";
 import { selectAllAircraft } from "@/features/flights/store/selectors";
+import { useLayersStore } from "@/features/layers/layers-store";
 import { createAircraftGeometry } from "../lib/aircraft-geometry";
 import type { AircraftSimulation } from "../lib/aircraft-simulation";
 import type { GlobePalette } from "../lib/palette";
@@ -25,6 +26,7 @@ interface AircraftLayerProps {
 export function AircraftLayer({ simulation, palette }: AircraftLayerProps) {
   const aircraft = useFlightsStore(selectAllAircraft);
   const filters = useFlightsStore((state) => state.filters);
+  const layerVisible = useLayersStore((state) => state.visible.aircraft);
   const meshRef = useRef<InstancedMesh>(null);
 
   // Aircraft in distress are drawn larger, like the selected one.
@@ -65,8 +67,8 @@ export function AircraftLayer({ simulation, palette }: AircraftLayerProps) {
   }, [simulation, aircraft]);
 
   useLayoutEffect(() => {
-    simulation.setVisibility((a) => matchesFilters(a, filters));
-  }, [simulation, aircraft, filters]);
+    simulation.setVisibility((a) => layerVisible && matchesFilters(a, filters));
+  }, [simulation, aircraft, filters, layerVisible]);
 
   useFrame(({ camera }) => {
     const mesh = meshRef.current;
