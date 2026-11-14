@@ -86,6 +86,46 @@ export function inclinationDegrees(orbit: Orbit): number {
   return (orbit.inclo * 180) / Math.PI;
 }
 
+/** Standard gravitational parameter of the Earth, in km³/s². */
+const EARTH_MU = 398_600.4418;
+const EARTH_EQUATORIAL_RADIUS_KM = 6378.137;
+const MINUTES_PER_DAY = 1440;
+/** One turn of the Earth on itself, in minutes. */
+const SIDEREAL_DAY_MINUTES = 1436.07;
+
+export interface OrbitShape {
+  /** Lowest altitude of the orbit, in kilometres above the equator. */
+  readonly perigeeKm: number;
+  /** Highest altitude of the orbit. */
+  readonly apogeeKm: number;
+  /** 0 for a circle, towards 1 for a stretched ellipse. */
+  readonly eccentricity: number;
+  readonly revolutionsPerDay: number;
+}
+
+export function orbitShape(orbit: Orbit): OrbitShape {
+  const radiansPerSecond = orbit.no / 60;
+  const semiMajorAxisKm = Math.cbrt(EARTH_MU / (radiansPerSecond * radiansPerSecond));
+  return {
+    perigeeKm: semiMajorAxisKm * (1 - orbit.ecco) - EARTH_EQUATORIAL_RADIUS_KM,
+    apogeeKm: semiMajorAxisKm * (1 + orbit.ecco) - EARTH_EQUATORIAL_RADIUS_KM,
+    eccentricity: orbit.ecco,
+    revolutionsPerDay: MINUTES_PER_DAY / orbitalPeriodMinutes(orbit),
+  };
+}
+
+/** The family of orbits this one belongs to, in the words used for satellites. */
+export function orbitRegime(orbit: Orbit): string {
+  const { perigeeKm, apogeeKm, eccentricity } = orbitShape(orbit);
+  const turnsWithTheEarth = Math.abs(orbitalPeriodMinutes(orbit) - SIDEREAL_DAY_MINUTES) < 30;
+  if (turnsWithTheEarth && eccentricity < 0.05) {
+    return inclinationDegrees(orbit) < 5 ? "Geostationary orbit" : "Geosynchronous orbit";
+  }
+  if (eccentricity >= 0.25) return "Highly elliptical orbit";
+  if (apogeeKm < 2000) return "Low Earth orbit";
+  return perigeeKm < 35_000 ? "Medium Earth orbit" : "High Earth orbit";
+}
+
 /**
  * One full revolution centred on `date`, as it stands in space at that
  * instant: an ellipse drawn in the Earth's frame of that same instant.

@@ -2,7 +2,10 @@
 
 import { X } from "lucide-react";
 import { GLOBE_PALETTES } from "@/features/globe/lib/palette";
+import { useShipPhoto } from "@/features/ships/client/ship-photo";
+import { flagOfMmsi } from "@/features/ships/domain/flag";
 import {
+  formatEta,
   navigationStatusLabel,
   shipDisplayName,
   shipTypeLabel,
@@ -14,8 +17,18 @@ import { useNowSeconds } from "@/shared/lib/use-now";
 import { useTheme } from "@/shared/theme/use-theme";
 import { Panel } from "@/shared/ui/Panel";
 import { Fact, Row } from "./DetailFacts";
+import { DetailPhoto, DetailPhotoPlaceholder } from "./DetailMedia";
 
 const KMH_PER_KNOT = 1.852;
+
+/** "400 × 59 m", or the length alone when the beam is unknown. */
+function formatSize(ship: Ship): string {
+  if (ship.lengthMetres === null) return "—";
+  const length = formatInteger(ship.lengthMetres);
+  return ship.beamMetres === null
+    ? `${length} m`
+    : `${length} × ${formatInteger(ship.beamMetres)} m`;
+}
 
 interface ShipDetailsProps {
   readonly ship: Ship;
@@ -26,6 +39,10 @@ export function ShipDetails({ ship }: ShipDetailsProps) {
   const color = GLOBE_PALETTES[useTheme()].ships[ship.category];
   const now = useNowSeconds();
   const name = shipDisplayName(ship);
+  const flag = flagOfMmsi(ship.mmsi);
+  // Photos are filed by IMO number, which small craft do not have.
+  const photoRequest = useShipPhoto(ship.imo);
+  const photo = photoRequest?.status === "ready" ? photoRequest.data : null;
 
   return (
     <Panel className="overflow-hidden" aria-label={`Details for ${name}`}>
@@ -38,7 +55,11 @@ export function ShipDetails({ ship }: ShipDetailsProps) {
           <h2 className="truncate font-mono text-2xl leading-tight font-semibold tracking-tight text-fg">
             {name}
           </h2>
-          <p className="truncate text-sm text-muted">{shipTypeLabel(ship.type)}</p>
+          <p className="truncate text-sm text-muted">
+            {flag === null
+              ? shipTypeLabel(ship.type)
+              : `${flag.emoji} ${flag.country} · ${shipTypeLabel(ship.type)}`}
+          </p>
         </div>
         <button
           type="button"
@@ -50,7 +71,21 @@ export function ShipDetails({ ship }: ShipDetailsProps) {
         </button>
       </header>
 
-      <dl className="grid grid-cols-2 gap-px border-y border-line bg-line">
+      {photoRequest?.status === "loading" && <DetailPhotoPlaceholder />}
+      {photo !== null && (
+        <DetailPhoto
+          src={photo.url}
+          width={photo.width}
+          height={photo.height}
+          alt={`Photo of ${name}`}
+          credit={[photo.author, photo.license, "Wikimedia Commons"]
+            .filter((part) => part !== null)
+            .join(" · ")}
+          href={photo.pageUrl}
+        />
+      )}
+
+      <dl className="mt-4 grid grid-cols-2 gap-px border-y border-line bg-line">
         <Fact
           label="Speed"
           value={ship.speedKnots === null ? "—" : `${ship.speedKnots.toFixed(1)} kn`}
@@ -62,15 +97,20 @@ export function ShipDetails({ ship }: ShipDetailsProps) {
         />
         <Fact label="Course" value={ship.course === null ? "—" : formatHeading(ship.course)} />
         <Fact label="Status" value={navigationStatusLabel(ship.status) ?? "—"} />
-        <Fact
-          label="Length"
-          value={ship.lengthMetres === null ? "—" : `${formatInteger(ship.lengthMetres)} m`}
-        />
+        <Fact label="Size" value={formatSize(ship)} />
       </dl>
 
       <dl className="space-y-2 p-4 text-sm">
         <Row label="Destination" value={ship.destination ?? "—"} />
+        <Row label="Expected" value={formatEta(ship.eta)} />
+        <Row
+          label="Draught"
+          value={ship.draughtMetres === null ? null : `${ship.draughtMetres.toFixed(1)} m`}
+        />
         <Row label="Position" value={formatCoordinates(ship.latitude, ship.longitude)} />
+        <Row label="Flag" value={flag?.country ?? null} />
+        <Row label="IMO" value={ship.imo === null ? null : String(ship.imo)} />
+        <Row label="Call sign" value={ship.callsign} />
         <Row label="MMSI" value={String(ship.mmsi)} />
         <Row
           label="Last heard"

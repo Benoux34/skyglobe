@@ -23,6 +23,7 @@ import { EmergencyAlerts } from "./EmergencyAlerts";
 import { FiltersPanel } from "./FiltersPanel";
 import { LaunchesPanel } from "./LaunchesPanel";
 import { LayersPanel } from "./LayersPanel";
+import { OverheadPanel } from "./OverheadPanel";
 import { SatelliteDetails } from "./SatelliteDetails";
 import { ShipDetails } from "./ShipDetails";
 import { SearchBox } from "./SearchBox";
@@ -77,6 +78,7 @@ export function MobileHud({ aircraft, satellite, ship }: MobileHudProps) {
           {sheet === "layers" && (
             <>
               <LayersPanel />
+              <OverheadPanel />
               {launchesShown && <LaunchesPanel />}
             </>
           )}

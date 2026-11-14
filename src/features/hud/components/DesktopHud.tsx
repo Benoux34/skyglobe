@@ -12,6 +12,7 @@ import { EmergencyAlerts } from "./EmergencyAlerts";
 import { FiltersPanel } from "./FiltersPanel";
 import { LaunchesPanel } from "./LaunchesPanel";
 import { LayersPanel } from "./LayersPanel";
+import { OverheadPanel } from "./OverheadPanel";
 import { SatelliteDetails } from "./SatelliteDetails";
 import { ShipDetails } from "./ShipDetails";
 import { SearchBox } from "./SearchBox";
@@ -36,6 +37,7 @@ export function DesktopHud({ aircraft, satellite, ship }: DesktopHudProps) {
         <SearchBox />
         <div className="min-h-0 space-y-3 overflow-y-auto rounded-xl">
           <LayersPanel />
+          <OverheadPanel />
           <FiltersPanel />
           {launchesShown && <LaunchesPanel />}
         </div>

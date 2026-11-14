@@ -5,11 +5,12 @@ import { useLayersStore } from "@/features/layers/layers-store";
 import { useSatellitesStore } from "../store/satellites-store";
 import { fetchSatelliteCatalog } from "./satellites-api";
 
-/** Downloads the satellite catalogue the first time the layer is switched on. */
+/** Downloads the satellite catalogue the first time the layer, or anything else, needs it. */
 export function useSatellitesLoader(): void {
   const enabled = useLayersStore((state) => state.visible.satellites);
+  const requested = useSatellitesStore((state) => state.requested);
   const status = useSatellitesStore((state) => state.status);
-  const needed = enabled && status === "idle";
+  const needed = (enabled || requested) && status === "idle";
 
   useEffect(() => {
     if (!needed) return;

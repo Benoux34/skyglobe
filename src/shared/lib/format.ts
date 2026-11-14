@@ -16,6 +16,25 @@ export function formatCoordinates(latitude: number, longitude: number): string {
   return `${lat}, ${lon}`;
 }
 
+const calendarDate = new Intl.DateTimeFormat("en-GB", {
+  day: "numeric",
+  month: "short",
+  year: "numeric",
+  timeZone: "UTC",
+});
+
+/** "20 Nov 1998", in UTC. */
+export const formatDate = (date: Date): string => calendarDate.format(date);
+
+const MS_PER_YEAR = 365.25 * 24 * 3600 * 1000;
+
+/** How long ago `date` was: "under a year", "1 year", "27 years". */
+export function formatYearsSince(date: Date, now: Date): string {
+  const years = Math.floor((now.getTime() - date.getTime()) / MS_PER_YEAR);
+  if (years < 1) return "under a year";
+  return years === 1 ? "1 year" : `${years} years`;
+}
+
 /** "just now", "45s ago", "12 min ago", "3 h ago". */
 export function formatAge(seconds: number): string {
   if (seconds < 5) return "just now";

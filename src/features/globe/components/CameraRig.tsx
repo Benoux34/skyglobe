@@ -27,6 +27,8 @@ export function CameraRig({ simulation }: CameraRigProps) {
   const focusingRef = useRef<string | null>(null);
   /** Fixed place the camera is flying to, as a unit vector. */
   const placeRef = useRef<Vector3 | null>(null);
+  /** Distance asked for along with that place; `null` for the usual close-up. */
+  const placeDistanceRef = useRef<number | null>(null);
   const canvas = useThree((state) => state.gl.domElement);
 
   // The latest request wins, whether it names an aircraft or a place.
@@ -38,6 +40,10 @@ export function CameraRig({ simulation }: CameraRigProps) {
   useEffect(() => {
     if (flyToRequest === null) return;
     placeRef.current = new Vector3(...flyToRequest.direction);
+    placeDistanceRef.current =
+      flyToRequest.distance === null
+        ? null
+        : clamp(flyToRequest.distance, CAMERA_MIN_DISTANCE, CAMERA_MAX_DISTANCE);
     focusingRef.current = null;
     useFlightsStore.getState().stopFollowing();
   }, [flyToRequest]);
@@ -88,9 +94,11 @@ export function CameraRig({ simulation }: CameraRigProps) {
     const blend = 1 - Math.exp(-FOCUS_SPEED * delta);
     // Only a fly-to zooms in; while following, the zoom level is the user's.
     const zooming = place !== null || flyingTo !== null;
-    const nextDistance = zooming
-      ? distance + (Math.min(distance, FOCUS_DISTANCE) - distance) * blend
-      : distance;
+    const goalDistance =
+      place !== null && placeDistanceRef.current !== null
+        ? placeDistanceRef.current
+        : Math.min(distance, FOCUS_DISTANCE);
+    const nextDistance = zooming ? distance + (goalDistance - distance) * blend : distance;
     const remainingAngle = direction.angleTo(target);
 
     direction.lerp(target, blend).normalize();

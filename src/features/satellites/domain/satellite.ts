@@ -28,6 +28,34 @@ export interface SatelliteRecord {
 
 export type SatelliteId = SatelliteRecord["id"];
 
+/** Two-digit years of an element set: 57 to 99 are the 1900s, the rest the 2000s. */
+const fullYear = (twoDigits: number): number => (twoDigits < 57 ? 2000 : 1900) + twoDigits;
+
+/**
+ * The name an object got at launch, e.g. "1998-067A": launch year, number of
+ * the launch in that year, then a letter per object the launch put in orbit.
+ */
+export function internationalDesignator(line1: string): string | null {
+  const match = /^(\d{2})(\d{3})([A-Z]{1,3})$/.exec(line1.slice(9, 17).trim());
+  if (match === null) return null;
+  const [, year = "", launch = "", piece = ""] = match;
+  return `${fullYear(Number(year))}-${launch}${piece}`;
+}
+
+/** Year of launch, read from the international designator. */
+export function launchYear(line1: string): number | null {
+  const year = internationalDesignator(line1)?.slice(0, 4);
+  return year === undefined ? null : Number(year);
+}
+
+/** When the orbit described by the element set was measured. */
+export function elementsEpoch(line1: string): Date | null {
+  const year = Number(line1.slice(18, 20));
+  const dayOfYear = Number(line1.slice(20, 32));
+  if (!Number.isInteger(year) || !Number.isFinite(dayOfYear) || dayOfYear < 1) return null;
+  return new Date(Date.UTC(fullYear(year), 0, 1) + (dayOfYear - 1) * 86_400_000);
+}
+
 interface TleEntry {
   readonly id: number;
   readonly name: string;

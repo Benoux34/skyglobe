@@ -17,11 +17,13 @@ export function Fact({ label, value, detail }: FactProps) {
 
 interface RowProps {
   readonly label: string;
-  readonly value: string;
+  /** `null` when the fact is unknown: the line is then left out. */
+  readonly value: string | null;
 }
 
 /** One line of the list of secondary facts under the key figures. */
 export function Row({ label, value }: RowProps) {
+  if (value === null) return null;
   return (
     <div className="flex justify-between gap-4">
       <dt className="shrink-0 text-muted">{label}</dt>

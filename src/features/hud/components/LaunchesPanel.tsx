@@ -1,11 +1,14 @@
 "use client";
 
-import { Rocket } from "lucide-react";
+import { Play, Rocket } from "lucide-react";
 import { useCameraStore } from "@/features/globe/store/camera-store";
 import { formatCountdown, type Launch } from "@/features/launches/domain/launch";
 import { useLaunchesStore } from "@/features/launches/store/launches-store";
 import { useNowSeconds } from "@/shared/lib/use-now";
 import { Panel } from "@/shared/ui/Panel";
+
+/** Camera distance, in Earth radii, from which a replayed ascent is watched. */
+const PREVIEW_CAMERA_DISTANCE = 2.3;
 
 /** Upcoming rocket launches with a live countdown; picking one flies to its pad. */
 export function LaunchesPanel() {
@@ -13,12 +16,21 @@ export function LaunchesPanel() {
   const launches = useLaunchesStore((state) => state.launches);
   const selectedId = useLaunchesStore((state) => state.selectedId);
   const select = useLaunchesStore((state) => state.select);
+  const startReplay = useLaunchesStore((state) => state.startReplay);
   const flyTo = useCameraStore((state) => state.flyTo);
   const now = useNowSeconds();
 
   const choose = (launch: Launch): void => {
     select(launch.id === selectedId ? null : launch.id);
     if (launch.pad !== null) flyTo(launch.pad.latitude, launch.pad.longitude);
+  };
+
+  const preview = (launch: Launch): void => {
+    startReplay(launch.id);
+    // From far enough to see the whole climb, some 1,600 km long.
+    if (launch.pad !== null) {
+      flyTo(launch.pad.latitude, launch.pad.longitude, PREVIEW_CAMERA_DISTANCE);
+    }
   };
 
   return (
@@ -63,6 +75,19 @@ export function LaunchesPanel() {
                   {launch.pad?.location ?? launch.pad?.name ?? "Launch site unknown"}
                 </span>
               </button>
+              {launch.id === selectedId && launch.pad !== null && (
+                <div className="flex items-center gap-2 px-2 pb-2">
+                  <button
+                    type="button"
+                    onClick={() => preview(launch)}
+                    className="flex shrink-0 items-center gap-1.5 rounded-md border border-line px-2 py-1 text-xs font-medium text-fg hover:bg-inset"
+                  >
+                    <Play className="size-3" aria-hidden />
+                    Preview ascent
+                  </button>
+                  <span className="truncate text-xs text-subtle">Estimated trajectory</span>
+                </div>
+              )}
             </li>
           ))}
         </ul>

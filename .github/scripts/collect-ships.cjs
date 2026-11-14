@@ -11,7 +11,9 @@
 // File format, one row per ship:
 //   { "time": <unix seconds>, "ships": [[mmsi, latitude, longitude, course,
 //     speed (knots), heading, navigational status, last heard (unix seconds),
-//     name, AIS ship type, destination, length (metres)], ...] }
+//     name, AIS ship type, destination, length (metres), beam (metres),
+//     draught (metres), IMO number, call sign, expected arrival ("MM-DDTHH:mm",
+//     UTC)], ...] }
 // Everything after the longitude may be null, except "last heard".
 "use strict";
 
@@ -26,8 +28,11 @@ const API_KEY = process.env.AISSTREAM_API_KEY || "";
 const LISTEN_SECONDS = Number(process.env.LISTEN_SECONDS || 130);
 /** Ships silent for longer than this are dropped from the snapshot. */
 const MAX_AGE_SECONDS = 45 * 60;
-/** Keeps the file within what the app can serve in one response. */
-const MAX_SHIPS = 40_000;
+/**
+ * Keeps the file within what the app can serve in one response (4.5 MB on
+ * Vercel). When there are more ships than fit, the most recently heard win.
+ */
+const MAX_ROWS_BYTES = 3_800_000;
 const RECONNECT_DELAY_MS = 2_000;
 
 const POSITION_MESSAGES = new Set([
@@ -47,8 +52,29 @@ const SUBSCRIPTION = {
   FilterMessageTypes: [...POSITION_MESSAGES, "ShipStaticData", "StaticDataReport"],
 };
 
+/** In the order of the columns of a row, after the MMSI. */
+const FIELDS = [
+  "latitude",
+  "longitude",
+  "course",
+  "speed",
+  "heading",
+  "status",
+  "seen",
+  "name",
+  "type",
+  "destination",
+  "length",
+  "beam",
+  "draught",
+  "imo",
+  "callsign",
+  "eta",
+];
+
 const nowSeconds = () => Date.now() / 1000;
 const round = (value, decimals) => Number(value.toFixed(decimals));
+const twoDigits = (value) => String(value).padStart(2, "0");
 
 /** A finite number accepted by `isValid`, otherwise null: AIS uses out-of-range values for "unknown". */
 const numberOr = (value, isValid) =>
@@ -61,20 +87,28 @@ function cleanText(value) {
   return text === "" ? null : text;
 }
 
+/** Seven digits, the last one a checksum of the six before it. Crews often leave it at 0. */
+function isImoNumber(value) {
+  if (!Number.isInteger(value) || value < 1_000_000 || value > 9_999_999) return false;
+  const digits = String(value).split("").map(Number);
+  const checksum = digits.slice(0, 6).reduce((sum, digit, index) => sum + digit * (7 - index), 0);
+  return checksum % 10 === digits[6];
+}
+
+/** AIS gives the expected arrival as a month, day, hour and minute, without a year. */
+function etaOf(eta) {
+  const month = numberOr(eta?.Month, (value) => value >= 1 && value <= 12);
+  const day = numberOr(eta?.Day, (value) => value >= 1 && value <= 31);
+  const hour = numberOr(eta?.Hour, (value) => value >= 0 && value <= 23);
+  const minute = numberOr(eta?.Minute, (value) => value >= 0 && value <= 59);
+  if (month === null || day === null || hour === null || minute === null) return null;
+  return `${twoDigits(month)}-${twoDigits(day)}T${twoDigits(hour)}:${twoDigits(minute)}`;
+}
+
 function emptyShip() {
-  return {
-    latitude: null,
-    longitude: null,
-    course: null,
-    speed: null,
-    heading: null,
-    status: null,
-    seen: 0,
-    name: null,
-    type: null,
-    destination: null,
-    length: null,
-  };
+  const ship = Object.fromEntries(FIELDS.map((field) => [field, null]));
+  ship.seen = 0;
+  return ship;
 }
 
 function loadPrevious(file) {
@@ -88,43 +122,35 @@ function loadPrevious(file) {
   if (!Array.isArray(rows)) return ships;
   for (const row of rows) {
     if (!Array.isArray(row) || typeof row[0] !== "number") continue;
-    const [
-      mmsi,
-      latitude,
-      longitude,
-      course,
-      speed,
-      heading,
-      status,
-      seen,
-      name,
-      type,
-      destination,
-      length,
-    ] = row;
-    ships.set(mmsi, {
-      latitude,
-      longitude,
-      course: course ?? null,
-      speed: speed ?? null,
-      heading: heading ?? null,
-      status: status ?? null,
-      seen: typeof seen === "number" ? seen : 0,
-      name: name ?? null,
-      type: type ?? null,
-      destination: destination ?? null,
-      length: length ?? null,
+    const ship = emptyShip();
+    // Rows written before the format grew are shorter: what they lack stays unknown.
+    FIELDS.forEach((field, index) => {
+      ship[field] = row[index + 1] ?? ship[field];
     });
+    ships.set(row[0], ship);
   }
   return ships;
 }
 
-function applyStaticData(ship, { name, type, dimension, destination }) {
+function applyStaticData(
+  ship,
+  { name, type, dimension, destination, imo, callsign, draught, eta },
+) {
   ship.name = cleanText(name) ?? ship.name;
   ship.type = numberOr(type, (value) => value >= 1 && value <= 99) ?? ship.type;
   ship.destination = cleanText(destination) ?? ship.destination;
+  // A and B run from the antenna to the bow and the stern, C and D to each side.
   const length = numberOr((dimension?.A ?? 0) + (dimension?.B ?? 0), (value) => value > 0);
+  const beam = numberOr((dimension?.C ?? 0) + (dimension?.D ?? 0), (value) => value > 0);
   ship.length = length ?? ship.length;
+  ship.beam = beam ?? ship.beam;
+  ship.imo = numberOr(imo, isImoNumber) ?? ship.imo;
+  ship.callsign = cleanText(callsign) ?? ship.callsign;
+  // The draught and the expected arrival change from one voyage to the next.
+  if (draught !== undefined) {
+    ship.draught = numberOr(draught, (value) => value > 0 && value < 30);
+  }
+  if (eta !== undefined) ship.eta = etaOf(eta);
 }
 
 function applyPosition(ship, body, meta, heardAt) {
@@ -176,12 +202,17 @@ function handleMessage(ships, message, heardAt) {
       type: body.Type,
       dimension: body.Dimension,
       destination: body.Destination,
+      imo: body.ImoNumber,
+      callsign: body.CallSign,
+      draught: body.MaximumStaticDraught ?? null,
+      eta: body.Eta ?? null,
     });
   } else if (message.MessageType === "StaticDataReport") {
     applyStaticData(ship, {
       name: body.ReportA?.Name,
       type: body.ReportB?.ShipType,
       dimension: body.ReportB?.Dimension,
+      callsign: body.ReportB?.CallSign,
     });
   }
 }
@@ -234,24 +265,19 @@ function listen(ships, seconds) {
 }
 
 function toRows(ships, time) {
-  return [...ships.entries()]
+  const heard = [...ships.entries()]
     .filter(([, ship]) => ship.latitude !== null && time - ship.seen <= MAX_AGE_SECONDS)
-    .sort(([, a], [, b]) => b.seen - a.seen)
-    .slice(0, MAX_SHIPS)
-    .map(([mmsi, ship]) => [
-      mmsi,
-      ship.latitude,
-      ship.longitude,
-      ship.course,
-      ship.speed,
-      ship.heading,
-      ship.status,
-      ship.seen,
-      ship.name,
-      ship.type,
-      ship.destination,
-      ship.length,
-    ]);
+    .sort(([, a], [, b]) => b.seen - a.seen);
+
+  const rows = [];
+  let bytes = 0;
+  for (const [mmsi, ship] of heard) {
+    const row = [mmsi, ...FIELDS.map((field) => ship[field])];
+    bytes += Buffer.byteLength(JSON.stringify(row)) + 1;
+    if (bytes > MAX_ROWS_BYTES) break;
+    rows.push(row);
+  }
+  return rows;
 }
 
 async function main() {

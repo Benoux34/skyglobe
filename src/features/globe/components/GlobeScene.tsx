@@ -15,7 +15,9 @@ import { CountryLabels } from "./CountryLabels";
 import { Earth } from "./Earth";
 import { EmergencyMarkers } from "./EmergencyMarkers";
 import { FlightPathLayer } from "./FlightPathLayer";
+import { LaunchAscent } from "./LaunchAscent";
 import { LaunchMarkers } from "./LaunchMarkers";
+import { ObserverMarker } from "./ObserverMarker";
 import { SatelliteLayer } from "./SatelliteLayer";
 import { SatelliteMarkers } from "./SatelliteMarkers";
 import { SatellitePicker } from "./SatellitePicker";
@@ -63,7 +65,13 @@ export function GlobeScene() {
           <ShipPicker key={layers.satellites ? "after-satellites" : "alone"} field={ships} />
         </>
       )}
-      {layers.launches && <LaunchMarkers palette={palette} />}
+      {layers.launches && (
+        <>
+          <LaunchMarkers palette={palette} />
+          <LaunchAscent palette={palette} />
+        </>
+      )}
+      <ObserverMarker palette={palette} />
       <CameraRig simulation={simulation} />
     </>
   );

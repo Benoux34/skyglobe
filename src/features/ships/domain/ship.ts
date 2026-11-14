@@ -37,6 +37,27 @@ export interface Ship {
   readonly category: ShipCategory;
   readonly destination: string | null;
   readonly lengthMetres: number | null;
+  /** Width of the hull. */
+  readonly beamMetres: number | null;
+  /** How deep the hull currently sits in the water. */
+  readonly draughtMetres: number | null;
+  /** Number that follows a hull for life, whatever its name, owner or flag. */
+  readonly imo: number | null;
+  /** Radio call sign. */
+  readonly callsign: string | null;
+  /** When the crew expects to arrive, as "MM-DDTHH:mm" in UTC: AIS carries no year. */
+  readonly eta: string | null;
+}
+
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/** "20 Nov, 14:00 UTC". */
+export function formatEta(eta: string | null): string | null {
+  const match = eta === null ? null : /^(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(eta);
+  if (match === null) return null;
+  const [, month = "", day = "", hour = "", minute = ""] = match;
+  const monthName = MONTHS[Number(month) - 1];
+  return monthName === undefined ? null : `${Number(day)} ${monthName}, ${hour}:${minute} UTC`;
 }
 
 /** Sorts the hundred AIS ship type codes into the few families shown on the globe. */
@@ -121,20 +142,38 @@ export function countByCategory(ships: readonly Ship[]): Record<ShipCategory, nu
  * `/api/ships` and the browser: with tens of thousands of ships, keyed objects
  * would double the payload.
  */
-const shipTupleSchema = z.tuple([
-  z.number().int(), // mmsi
-  z.number().min(-90).max(90), // latitude
-  z.number().min(-180).max(180), // longitude
-  z.number().nullable(), // course
-  z.number().nullable(), // speed, in knots
-  z.number().nullable(), // heading
-  z.number().nullable(), // navigational status
-  z.number(), // last heard
-  z.string().nullable(), // name
-  z.number().nullable(), // AIS ship type
-  z.string().nullable(), // destination
-  z.number().nullable(), // length, in metres
-]);
+const SHIP_TUPLE_LENGTH = 17;
+
+/** Rows written before the format grew are shorter: what they lack is unknown. */
+function padRow(row: unknown): unknown {
+  if (!Array.isArray(row)) return row;
+  const cells: unknown[] = row;
+  const missing = SHIP_TUPLE_LENGTH - cells.length;
+  return missing > 0 ? [...cells, ...new Array<null>(missing).fill(null)] : cells;
+}
+
+const shipTupleSchema = z.preprocess(
+  padRow,
+  z.tuple([
+    z.number().int(), // mmsi
+    z.number().min(-90).max(90), // latitude
+    z.number().min(-180).max(180), // longitude
+    z.number().nullable(), // course
+    z.number().nullable(), // speed, in knots
+    z.number().nullable(), // heading
+    z.number().nullable(), // navigational status
+    z.number(), // last heard
+    z.string().nullable(), // name
+    z.number().nullable(), // AIS ship type
+    z.string().nullable(), // destination
+    z.number().nullable(), // length, in metres
+    z.number().nullable(), // beam, in metres
+    z.number().nullable(), // draught, in metres
+    z.number().nullable(), // IMO number
+    z.string().nullable(), // call sign
+    z.string().nullable(), // expected arrival, "MM-DDTHH:mm" in UTC
+  ]),
+);
 
 export type ShipTuple = z.infer<typeof shipTupleSchema>;
 
@@ -183,6 +222,11 @@ export function decodeShip(tuple: ShipTuple): Ship {
     category: categoryOfType(tuple[9]),
     destination: tuple[10],
     lengthMetres: tuple[11],
+    beamMetres: tuple[12],
+    draughtMetres: tuple[13],
+    imo: tuple[14],
+    callsign: tuple[15],
+    eta: tuple[16],
   };
 }
 

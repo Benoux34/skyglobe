@@ -1,0 +1,65 @@
+import type { Mmsi } from "./ship";
+
+/**
+ * The first three digits of an MMSI name the country a ship is registered in.
+ * Each line: ISO country code, then the prefixes allocated to it.
+ */
+const PREFIXES_BY_COUNTRY = `
+AL 201|AD 202|AT 203|PT 204 255 263|BE 205|BY 206|BG 207|VA 208|CY 209 210 212|DE 211 218
+GE 213|MD 214|MT 215 229 248 249 256|AM 216|DK 219 220|ES 224 225|FR 226 227 228|FI 230|FO 231
+GB 232 233 234 235|GI 236|GR 237 239 240 241|HR 238|MA 242|HU 243|NL 244 245 246|IT 247|IE 250
+IS 251|LI 252|LU 253|MC 254|NO 257 258 259|PL 261|ME 262|RO 264|SE 265 266|SK 267|SM 268|CH 269
+CZ 270|TR 271|UA 272|RU 273|MK 274|LV 275|EE 276|LT 277|SI 278|RS 279
+AI 301|US 303 338 366 367 368 369|AG 304 305|CW 306|AW 307|BS 308 309 311|BM 310|BZ 312|BB 314
+CA 316|KY 319|CR 321|CU 323|DM 325|DO 327|GP 329|GD 330|GL 331|GT 332|HN 334|HT 336|JM 339
+KN 341|LC 343|MX 345|MQ 347|MS 348|NI 350|PA 351 352 353 354 355 356 357 370 371 372 373 374
+PR 358|SV 359|PM 361|TT 362|TC 364|VC 375 376 377|VG 378|VI 379
+AF 401|SA 403|BD 405|BH 408|BT 410|CN 412 413 414|TW 416|LK 417|IN 419|IR 422|AZ 423|IQ 425
+IL 428|JP 431 432|TM 434|KZ 436|UZ 437|JO 438|KR 440 441|PS 443|KP 445|KW 447|LB 450|KG 451
+MO 453|MV 455|MN 457|NP 459|OM 461|PK 463|QA 466|SY 468|AE 470 471|TJ 472|YE 473 475|HK 477
+BA 478
+TF 501 607 618 635|AU 503|MM 506|BN 508|FM 510|PW 511|NZ 512|KH 514 515|CX 516|CK 518|FJ 520
+CC 523|ID 525|KI 529|LA 531|MY 533|MP 536|MH 538|NC 540|NU 542|NR 544|PF 546|PH 548|TL 550
+PG 553|PN 555|SB 557|AS 559|WS 561|SG 563 564 565 566|TH 567|TO 570|TV 572|VN 574|VU 576 577
+WF 578
+ZA 601|AO 603|DZ 605|SH 608 665|BI 609|BJ 610|BW 611|CF 612|CM 613|CG 615|KM 616 620|CV 617
+CI 619|DJ 621|EG 622|ET 624|ER 625|GA 626|GH 627|GM 629|GW 630|GQ 631|GN 632|BF 633|KE 634
+LR 636 637|SS 638|LY 642|LS 644|MU 645|MG 647|ML 649|MZ 650|MR 654|MW 655|NE 656|NG 657|NA 659
+RE 660|RW 661|SD 662|SN 663|SC 664|SO 666|SL 667|ST 668|SZ 669|TD 670|TG 671|TN 672|TZ 674 677
+UG 675|CD 676|ZM 678|ZW 679
+AR 701|BR 710|BO 720|CL 725|CO 730|EC 735|FK 740|GF 745|GY 750|PY 755|PE 760|SR 765|UY 770|VE 775
+`;
+
+const COUNTRY_BY_PREFIX: ReadonlyMap<number, string> = new Map(
+  PREFIXES_BY_COUNTRY.split(/[|\n]/)
+    .map((entry) => entry.trim().split(" "))
+    .flatMap(([country, ...prefixes]) =>
+      country === undefined || country === ""
+        ? []
+        : prefixes.map((prefix) => [Number(prefix), country] as const),
+    ),
+);
+
+const REGIONAL_INDICATOR_A = 0x1f1e6;
+const countryNames = new Intl.DisplayNames(["en"], { type: "region" });
+
+export interface ShipFlag {
+  /** ISO 3166 two-letter code. */
+  readonly code: string;
+  readonly country: string;
+  /** The flag as an emoji. */
+  readonly emoji: string;
+}
+
+/** Where a ship is registered, read from its MMSI. `null` for an unallocated prefix. */
+export function flagOfMmsi(mmsi: Mmsi): ShipFlag | null {
+  const code = COUNTRY_BY_PREFIX.get(Math.floor(mmsi / 1_000_000));
+  if (code === undefined) return null;
+  return {
+    code,
+    country: countryNames.of(code) ?? code,
+    emoji: String.fromCodePoint(
+      ...[...code].map((letter) => REGIONAL_INDICATOR_A + letter.charCodeAt(0) - 65),
+    ),
+  };
+}

@@ -10,6 +10,8 @@ const NO_SHIPS: readonly Ship[] = [];
 
 interface ShipsState {
   readonly status: ShipsStatus;
+  /** True once something other than the layer needs the ships: the search. */
+  readonly requested: boolean;
   /** Why the ships could not be loaded, when `status` is "error". */
   readonly failure: string | null;
   readonly ships: readonly Ship[];
@@ -21,6 +23,8 @@ interface ShipsState {
 }
 
 interface ShipsActions {
+  /** Asks for the ships to be loaded even while the layer is hidden. */
+  request(): void;
   snapshotRequested(): void;
   snapshotLoaded(snapshot: ShipsSnapshot): void;
   snapshotFailed(failure: string): void;
@@ -48,12 +52,15 @@ const shipById = (ships: readonly Ship[], id: Mmsi | null): Ship | null =>
 
 export const useShipsStore = create<ShipsStore>()((set) => ({
   status: "idle",
+  requested: false,
   failure: null,
   ships: NO_SHIPS,
   time: null,
   categories: { cargo: true, tanker: true, passenger: true, fishing: true, other: true },
   selectedId: null,
   hoveredId: null,
+
+  request: () => set((state) => (state.requested ? state : { requested: true })),
 
   // A refresh keeps showing the ships already on the globe.
   snapshotRequested: () =>

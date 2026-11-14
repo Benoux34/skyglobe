@@ -9,6 +9,8 @@ const NO_SATELLITES: readonly SatelliteRecord[] = [];
 
 interface SatellitesState {
   readonly status: CatalogStatus;
+  /** True once something other than the layer needs the catalogue: the search, the sky above the user. */
+  readonly requested: boolean;
   readonly catalog: readonly SatelliteRecord[];
   readonly groups: Readonly<Record<SatelliteGroup, boolean>>;
   readonly selectedId: SatelliteId | null;
@@ -16,6 +18,8 @@ interface SatellitesState {
 }
 
 interface SatellitesActions {
+  /** Asks for the catalogue to be loaded even while the layer is hidden. */
+  request(): void;
   catalogRequested(): void;
   catalogLoaded(catalog: readonly SatelliteRecord[]): void;
   catalogFailed(): void;
@@ -28,11 +32,13 @@ export type SatellitesStore = SatellitesState & SatellitesActions;
 
 export const useSatellitesStore = create<SatellitesStore>()((set) => ({
   status: "idle",
+  requested: false,
   catalog: NO_SATELLITES,
   groups: { station: true, starlink: true, navigation: true, other: true },
   selectedId: null,
   hoveredId: null,
 
+  request: () => set((state) => (state.requested ? state : { requested: true })),
   catalogRequested: () => set({ status: "loading" }),
   catalogLoaded: (catalog) => set({ status: "ready", catalog }),
   catalogFailed: () => set({ status: "error" }),

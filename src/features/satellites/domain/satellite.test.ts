@@ -4,9 +4,18 @@ import {
   inclinationDegrees,
   orbitalPeriodMinutes,
   orbitPathAt,
+  orbitRegime,
+  orbitShape,
   satelliteStateAt,
 } from "./orbit";
-import { buildCatalog, countByGroup, parseTle } from "./satellite";
+import {
+  buildCatalog,
+  countByGroup,
+  elementsEpoch,
+  internationalDesignator,
+  launchYear,
+  parseTle,
+} from "./satellite";
 
 const ISS = [
   "ISS (ZARYA)             ",
@@ -96,6 +105,29 @@ describe("orbit", () => {
     // ...and the seam, where the two ends nearly meet, is on the opposite side of the Earth.
     expect(distance(first, last)).toBeLessThan(60);
     expect(distance(first, current)).toBeGreaterThan(13_000);
+  });
+
+  it("describes the shape of the orbit", () => {
+    if (orbit === null) return;
+    const shape = orbitShape(orbit);
+
+    expect(shape.perigeeKm).toBeGreaterThan(400);
+    expect(shape.apogeeKm).toBeLessThan(430);
+    expect(shape.apogeeKm).toBeGreaterThan(shape.perigeeKm);
+    expect(shape.revolutionsPerDay).toBeCloseTo(15.5, 1);
+    expect(orbitRegime(orbit)).toBe("Low Earth orbit");
+
+    const [, gpsLine1 = "", gpsLine2 = ""] = GPS;
+    const gps = createOrbit({ line1: gpsLine1, line2: gpsLine2 });
+    expect(gps === null ? null : orbitRegime(gps)).toBe("Medium Earth orbit");
+  });
+
+  it("reads the launch and the date of the elements from line 1", () => {
+    expect(internationalDesignator(line1)).toBe("1998-067A");
+    expect(launchYear(line1)).toBe(1998);
+    // Day 316.43 of 2026 is 12 November, mid-morning.
+    expect(elementsEpoch(line1)?.toISOString().slice(0, 13)).toBe("2026-11-12T10");
+    expect(internationalDesignator("1 garbage")).toBeNull();
   });
 
   it("rejects unusable element sets", () => {

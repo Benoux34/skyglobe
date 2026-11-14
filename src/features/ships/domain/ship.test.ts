@@ -3,6 +3,7 @@ import {
   categoryOfType,
   countByCategory,
   decodeShipsSnapshot,
+  formatEta,
   navigationStatusLabel,
   shipBearing,
   shipDisplayName,
@@ -27,7 +28,13 @@ const SNAPSHOT = {
       71,
       "MARSEILLE",
       400,
+      59,
+      14.5,
+      9839179,
+      "FLZS",
+      "11-20T14:00",
     ],
+    // Rows of the first version of the file stop at the length.
     [311000123, 25.77, -80.13, null, 0, null, 5, 1_789_999_000, "OCEAN PEARL", 60, null, 290],
     [227000001, 48.38, -4.49, 90, 3.1, null, null, 1_789_999_900, null, null, null, null],
   ],
@@ -76,7 +83,28 @@ describe("decodeShipsSnapshot", () => {
       category: "cargo",
       destination: "MARSEILLE",
       lengthMetres: 400,
+      beamMetres: 59,
+      draughtMetres: 14.5,
+      imo: 9839179,
+      callsign: "FLZS",
+      eta: "11-20T14:00",
     });
+  });
+
+  it("reads rows written before the format grew", () => {
+    expect(snapshot.ships[1]).toMatchObject({
+      name: "OCEAN PEARL",
+      lengthMetres: 290,
+      beamMetres: null,
+      imo: null,
+      eta: null,
+    });
+  });
+
+  it("spells out the expected arrival", () => {
+    expect(formatEta("11-20T14:00")).toBe("20 Nov, 14:00 UTC");
+    expect(formatEta("13-20T14:00")).toBeNull();
+    expect(formatEta(null)).toBeNull();
   });
 
   it("copes with ships that broadcast very little", () => {

@@ -3,8 +3,9 @@
 import { useFrame } from "@react-three/fiber";
 import { useMemo, useRef } from "react";
 import { DoubleSide, type Group, type Vector3 } from "three";
-import type { Launch, LaunchPad } from "@/features/launches/domain/launch";
+import { formatCountdown, type Launch, type LaunchPad } from "@/features/launches/domain/launch";
 import { useLaunchesStore } from "@/features/launches/store/launches-store";
+import { useNowSeconds } from "@/shared/lib/use-now";
 import { latLonToUnitVector, SURFACE_RADIUS, type Vec3 } from "../lib/coordinates";
 import type { GlobePalette } from "../lib/palette";
 import { aircraftIconScale } from "../lib/view";
@@ -28,6 +29,15 @@ function soonestPerPad(launches: readonly Launch[]): PadLaunch[] {
   return [...byPad.values()];
 }
 
+/** From this long before lift-off, the pad shows the countdown next to the rocket's name. */
+const COUNTDOWN_FROM_SECONDS = 24 * 3600;
+
+/** "Falcon 9", or "Falcon 9 · T−02:15:09" on launch day. */
+function labelOf(launch: Launch, now: number | null): string {
+  if (now === null || launch.liftoffTime - now > COUNTDOWN_FROM_SECONDS) return launch.rocket;
+  return `${launch.rocket} · ${formatCountdown(launch.liftoffTime - now)}`;
+}
+
 interface LaunchMarkersProps {
   readonly palette: GlobePalette;
 }
@@ -36,10 +46,14 @@ interface LaunchMarkersProps {
 export function LaunchMarkers({ palette }: LaunchMarkersProps) {
   const launches = useLaunchesStore((state) => state.launches);
   const selectedId = useLaunchesStore((state) => state.selectedId);
+  const replayedId = useLaunchesStore((state) => state.replay?.launchId ?? null);
+  const now = useNowSeconds();
 
   const pads = useMemo(() => soonestPerPad(launches), [launches]);
   const next = pads[0];
-  const selected = launches.find((launch) => launch.id === selectedId) ?? null;
+  // The launch being replayed is named by its rocket, which starts on the pad.
+  const named = (launch: Launch): boolean => launch.id !== replayedId;
+  const selected = launches.find((launch) => launch.id === selectedId && named(launch)) ?? null;
   const selectedPad = selected?.pad ?? null;
 
   return (
@@ -48,10 +62,10 @@ export function LaunchMarkers({ palette }: LaunchMarkersProps) {
         <PadMarker key={launch.id} pad={pad} color={palette.launch} />
       ))}
       {selected !== null && selectedPad !== null && (
-        <PadLabel text={selected.rocket} pad={selectedPad} emphasized />
+        <PadLabel text={labelOf(selected, now)} pad={selectedPad} emphasized />
       )}
-      {next !== undefined && next.launch.id !== selected?.id && (
-        <PadLabel text={next.launch.rocket} pad={next.pad} />
+      {next !== undefined && next.launch.id !== selected?.id && named(next.launch) && (
+        <PadLabel text={labelOf(next.launch, now)} pad={next.pad} />
       )}
     </>
   );

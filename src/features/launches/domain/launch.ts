@@ -14,6 +14,8 @@ export interface Launch {
   readonly rocket: string;
   readonly mission: string | null;
   readonly provider: string | null;
+  /** Short name of the orbit aimed for, e.g. "LEO", "SSO", "GTO". */
+  readonly orbit: string | null;
   /** Short readiness label, e.g. "Go", "TBC", "TBD". */
   readonly status: string | null;
   readonly statusDescription: string | null;
@@ -37,7 +39,12 @@ export const launchLibraryResponseSchema = z.object({
       status: z.object({ abbrev: z.string().nullish(), name: z.string().nullish() }).nullish(),
       launch_service_provider: namedSchema,
       rocket: z.object({ configuration: namedSchema }).nullish(),
-      mission: namedSchema,
+      mission: z
+        .object({
+          name: z.string(),
+          orbit: z.object({ abbrev: z.string().nullish() }).nullish(),
+        })
+        .nullish(),
       pad: z
         .object({
           name: z.string(),
@@ -78,6 +85,7 @@ export function toLaunch(raw: LaunchLibraryLaunch): Launch | null {
     rocket: raw.rocket?.configuration?.name ?? rocketFromName ?? raw.name,
     mission: raw.mission?.name ?? missionFromName ?? null,
     provider: raw.launch_service_provider?.name ?? null,
+    orbit: raw.mission?.orbit?.abbrev ?? null,
     status: raw.status?.abbrev ?? null,
     statusDescription: raw.status?.name ?? null,
     liftoffTime: liftoffMs / 1000,

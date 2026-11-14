@@ -5,6 +5,7 @@ import { useSelectedFlightDetails } from "@/features/flights/client/use-selected
 import { useFlightsPolling } from "@/features/flights/client/use-flights-polling";
 import { Hud } from "@/features/hud/components/Hud";
 import { useLaunchesLoader } from "@/features/launches/client/use-launches-loader";
+import { useOverheadScanner } from "@/features/overhead/client/use-overhead-scanner";
 import { useSatellitesLoader } from "@/features/satellites/client/use-satellites-loader";
 import { useShipsPolling } from "@/features/ships/client/use-ships-polling";
 
@@ -20,6 +21,7 @@ export function FlightRadar() {
   useSatellitesLoader();
   useLaunchesLoader();
   useShipsPolling();
+  useOverheadScanner();
 
   return (
     <main className="relative h-dvh w-dvw overflow-hidden bg-background">
